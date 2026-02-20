@@ -34,10 +34,12 @@ QProgressBar::chunk { background-color: #00E676; border-radius: 3px; }
 QTextEdit { background-color: #000000; border: 1px solid #333333; border-radius: 4px; }
 """
 
+APP_VERSION = "v1.0.0"
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Naz Android Toolkit")
+        self.setWindowTitle(f"Naz Android Toolkit {APP_VERSION}")
         self.setMinimumSize(1200, 900)
         self.is_flashing = False
         self.session_log = []
@@ -97,7 +99,7 @@ class MainWindow(QMainWindow):
         title = QLabel("Naz Android Toolkit")
         title.setFont(QFont("Arial", 26, QFont.Bold))
         title.setStyleSheet("color: white; margin-bottom: -5px;")
-        sub_title = QLabel("Ultimate Developer & Recovery Suite")
+        sub_title = QLabel(f"Another Android Fastboot Recovery Suite | {APP_VERSION}")
         sub_title.setStyleSheet("color: #AAAAAA; font-size: 12px; margin-top: -5px;")
         title_layout.addWidget(title)
         title_layout.addWidget(sub_title)
