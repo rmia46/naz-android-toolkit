@@ -20,8 +20,8 @@ QMainWindow { background-color: #121212; color: #E0E0E0; }
 QTabWidget::pane { border: 1px solid #333333; top: -1px; background: #1E1E1E; border-radius: 4px; }
 QTabBar::tab { background: #252525; padding: 10px 20px; border: 1px solid #333333; margin-right: 2px; border-top-left-radius: 4px; border-top-right-radius: 4px; color: #AAAAAA; }
 QTabBar::tab:selected { background: #1E1E1E; border-bottom-color: #1E1E1E; color: #00E676; font-weight: bold; }
-QGroupBox { font-weight: bold; border: 2px solid #333333; border-radius: 6px; margin-top: 15px; padding-top: 15px; color: #00E676; }
-QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 5px; left: 10px; bottom: 5px; }
+QGroupBox { font-weight: bold; border: 2px solid #333333; border-radius: 6px; margin-top: 20px; padding-top: 15px; color: #00E676; }
+QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 5px 10px; left: 10px; }
 QPushButton { background-color: #333333; border: 1px solid #444444; border-radius: 4px; padding: 6px 15px; min-height: 25px; color: white; }
 QPushButton:hover { background-color: #444444; border: 1px solid #00E676; }
 QPushButton#flash_btn { background-color: #B71C1C; font-size: 14px; font-weight: bold; border: 1px solid #E53935; }
@@ -32,9 +32,10 @@ QHeaderView::section { background-color: #252525; padding: 4px; border: 1px soli
 QProgressBar { border: 1px solid #333333; border-radius: 4px; text-align: center; background-color: #252525; height: 15px; }
 QProgressBar::chunk { background-color: #00E676; border-radius: 3px; }
 QTextEdit { background-color: #000000; border: 1px solid #333333; border-radius: 4px; }
+QLabel { padding: 1px 0px; }
 """
 
-APP_VERSION = "v1.0.0"
+APP_VERSION = "v1.1.0"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -98,9 +99,9 @@ class MainWindow(QMainWindow):
         title_layout = QVBoxLayout()
         title = QLabel("Naz Android Toolkit")
         title.setFont(QFont("Arial", 26, QFont.Bold))
-        title.setStyleSheet("color: white; margin-bottom: -5px;")
+        title.setStyleSheet("color: white;")
         sub_title = QLabel(f"Another Android Fastboot Recovery Suite | {APP_VERSION}")
-        sub_title.setStyleSheet("color: #AAAAAA; font-size: 12px; margin-top: -5px;")
+        sub_title.setStyleSheet("color: #AAAAAA; font-size: 12px;")
         title_layout.addWidget(title)
         title_layout.addWidget(sub_title)
         header_layout.addLayout(title_layout)
@@ -183,7 +184,6 @@ class MainWindow(QMainWindow):
         
         # Status/Security
         self.cards["Bootloader_card"], self.info_labels["Bootloader"] = self.create_info_card("Bootloader State", "#F44336")
-        self.cards["Integrity_card"], self.info_labels["Integrity"] = self.create_info_card("Device Integrity", "#9C27B0")
         
         # Live Metrics (ADB Only)
         self.cards["Battery_card"], self.lbl_battery = self.create_info_card("Battery Level", "#4CAF50")
@@ -192,8 +192,8 @@ class MainWindow(QMainWindow):
 
         card_keys = [
             "Model_card", "Product_card", "State_card",
-            "Root_card", "Bootloader_card", "Integrity_card",
-            "Battery_card", "Temp_card", "Storage_card"
+            "Root_card", "Bootloader_card", "Battery_card", 
+            "Temp_card", "Storage_card"
         ]
         for i, key in enumerate(card_keys):
             grid.addWidget(self.cards[key], i // 3, i % 3)
@@ -202,15 +202,10 @@ class MainWindow(QMainWindow):
 
         # Bottom Actions
         actions_layout = QHBoxLayout()
-        btn_integrity = QPushButton("Run Full Integrity Check")
-        btn_integrity.setFixedHeight(40)
-        btn_integrity.clicked.connect(self.check_integrity)
-        
         btn_refresh = QPushButton("Refresh All Info")
         btn_refresh.setFixedHeight(40)
         btn_refresh.clicked.connect(self.on_device_selected)
         
-        actions_layout.addWidget(btn_integrity)
         actions_layout.addWidget(btn_refresh)
         layout.addLayout(actions_layout)
 
@@ -651,22 +646,6 @@ class MainWindow(QMainWindow):
         self.current_row += 1
         self.progress.setValue(self.current_row)
         self.flash_next()
-
-    def check_integrity(self):
-        serial = self.device_combo.currentData()
-        if not serial: return
-        is_adb = "ADB" in self.device_combo.currentText()
-        
-        if not is_adb:
-            QMessageBox.information(self, "Integrity Check", "Integrity check is only available in ADB mode.")
-            return
-
-        self.log("Starting Device Integrity Check...")
-        self.run_command("adb shell 'ls /data/adb/magisk'", callback=self.on_integrity_part)
-        self.run_command("adb shell 'getprop ro.boot.vbmeta.device_state'", callback=self.on_integrity_part)
-
-    def on_integrity_part(self, code):
-        self.log("Integrity part complete.")
 
     def format_partition(self):
         p = self.fmt_partition_combo.currentText().strip()
