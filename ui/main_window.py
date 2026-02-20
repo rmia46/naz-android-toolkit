@@ -598,6 +598,8 @@ class MainWindow(QMainWindow):
         
         if reply == QMessageBox.Yes and not self.is_flashing:
             self.is_flashing = True
+            self.btn_flash.setEnabled(False)
+            self.btn_flash.setText("Flashing...")
             self.current_row = 0
             self.progress.setMaximum(count)
             self.progress.setValue(0)
@@ -617,6 +619,8 @@ class MainWindow(QMainWindow):
             self.run_batch_command(f'fastboot flash {p} "{f}"', self.on_finished)
         else:
             self.is_flashing = False
+            self.btn_flash.setText("START BATCH FLASH")
+            self.btn_flash.setEnabled(True)
             self.progress.setValue(self.progress.maximum())
             self.set_ui_enabled(True)
             self.log("<b>Batch operation complete.</b>")
