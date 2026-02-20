@@ -1,5 +1,27 @@
-.gemini
-gemini
-context.md
-.venv
-naz_flash_tool.py
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Logs
+logs/
+*.log
+
+# Project specific
+.gemini/
+gemini-conversation-*.json
+# Keep logo.png if it's part of the app resources, but user might want it ignored? 
+# Usually resources are kept. I'll remove logo.png from here.
+
+# IDEs
+.vscode/
+.idea/
