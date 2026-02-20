@@ -50,6 +50,27 @@ def get_adb_info(serial):
     except: pass
     return info
 
+def get_adb_metrics(serial):
+    metrics = {"Battery": "N/A", "Temp": "N/A", "Storage": "N/A"}
+    try:
+        # Battery & Temp
+        batt_proc = subprocess.run(["adb", "-s", serial, "shell", "dumpsys", "battery"], capture_output=True, text=True)
+        batt_out = batt_proc.stdout
+        level = re.search(r"level:\s*(\d+)", batt_out)
+        temp = re.search(r"temperature:\s*(\d+)", batt_out)
+        if level: metrics["Battery"] = f"{level.group(1)}%"
+        if temp: metrics["Temp"] = f"{int(temp.group(1))/10}°C"
+        
+        # Storage (Internal)
+        storage_proc = subprocess.run(["adb", "-s", serial, "shell", "df", "/data"], capture_output=True, text=True)
+        lines = storage_proc.stdout.splitlines()
+        if len(lines) > 1:
+            parts = lines[1].split()
+            if len(parts) >= 5:
+                metrics["Storage"] = f"{parts[4]} used" # e.g. 45%
+    except: pass
+    return metrics
+
 def get_fastboot_info(serial):
     info = {"Product": "N/A", "Unlocked": "N/A"}
     try:
@@ -70,25 +91,44 @@ def fetch_partitions_from_device(serial):
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         output = proc.stderr
         
-        partitions = set()
-        # Common patterns for partitions in getvar all
+        found = set()
         pattern1 = re.compile(r"partition-(?:size|type):([^:]+):")
         pattern2 = re.compile(r"\(bootloader\)\s*partition-.*:([^:]+)")
         
         for line in output.splitlines():
             match1 = pattern1.search(line)
-            if match1:
-                partitions.add(match1.group(1).strip())
+            if match1: found.add(match1.group(1).strip())
             match2 = pattern2.search(line)
-            if match2:
-                partitions.add(match2.group(1).strip())
+            if match2: found.add(match2.group(1).strip())
         
-        # If set is empty, try a fallback for some devices
-        if not partitions:
-            # Some devices show them differently or might need 'fastboot oem partition-dump' (unlikely to be generic)
-            pass
-            
-        return sorted(list(partitions))
+        # Categorization Logic
+        categories = {
+            "Standard": [],
+            "Critical/Advanced": []
+        }
+        
+        # Partitions usually safe/common to flash
+        standard_names = [
+            "boot", "recovery", "system", "vendor", "super", "userdata", "dtbo", 
+            "vbmeta", "vbmeta_system", "vbmeta_vendor", "odm", "product", "system_ext",
+            "my_product", "my_engineering", "my_stock", "my_heytap", "my_company", 
+            "my_carrier", "my_region", "my_preload", "my_manifest"
+        ]
+        
+        for p in found:
+            # Skip hex addresses (e.g. 0x1000)
+            if p.startswith("0x") or len(p) < 2:
+                continue
+                
+            is_standard = any(std in p.lower() for std in standard_names)
+            if is_standard:
+                categories["Standard"].append(p)
+            else:
+                categories["Critical/Advanced"].append(p)
+        
+        categories["Standard"].sort()
+        categories["Critical/Advanced"].sort()
+        return categories
     except:
-        return []
+        return {"Standard": [], "Critical/Advanced": []}
 
