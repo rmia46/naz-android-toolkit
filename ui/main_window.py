@@ -36,13 +36,14 @@ QTextEdit { background-color: #000000; border: 1px solid #333333; border-radius:
 QLabel { padding: 1px 0px; }
 """
 
-APP_VERSION = "v1.1.0"
+APP_VERSION = "v1.1.3"
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"Naz Android Toolkit {APP_VERSION}")
         self.setMinimumSize(1200, 900)
+        self.setAcceptDrops(True)
         self.is_flashing = False
         self.session_log = []
         self.settings = SettingsManager()
@@ -57,6 +58,57 @@ class MainWindow(QMainWindow):
         self.metrics_timer = QTimer()
         self.metrics_timer.timeout.connect(self.update_live_metrics)
         self.metrics_timer.start(5000)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        files = [u.toLocalFile() for u in event.mimeData().urls()]
+        for f in files:
+            ext = os.path.splitext(f)[1].lower()
+            if ext == ".apk":
+                self.handle_apk_drop(f)
+            elif ext in [".img", ".bin"]:
+                self.handle_image_drop(f)
+            else:
+                self.log(f"Unsupported file dropped: {os.path.basename(f)}")
+
+    def handle_apk_drop(self, file_path):
+        serial = self.device_combo.currentData()
+        if not serial or "ADB" not in self.device_combo.currentText():
+            QMessageBox.warning(self, "ADB Error", "Please connect a device in ADB mode to install APKs.")
+            return
+        
+        reply = QMessageBox.question(self, "Install APK", 
+                                   f"Do you want to install {os.path.basename(file_path)}?",
+                                   QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.tabs.setCurrentIndex(1)
+            self.run_command(f'adb install "{file_path}"')
+
+    def handle_image_drop(self, file_path):
+        self.tabs.setCurrentIndex(2)
+        selected_part = self.partition_combo.currentText().strip()
+        partition = selected_part if selected_part else os.path.basename(file_path).lower().replace(".img", "").replace(".bin", "")
+        
+        row = self.queue_table.rowCount()
+        self.queue_table.insertRow(row)
+        
+        part_item = QTableWidgetItem(partition)
+        self.queue_table.setItem(row, 0, part_item)
+        
+        file_item = QTableWidgetItem(file_path)
+        file_item.setFlags(file_item.flags() & ~Qt.ItemIsEditable)
+        file_item.setToolTip(file_path)
+        self.queue_table.setItem(row, 1, file_item)
+        
+        status_item = QTableWidgetItem("Pending")
+        status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
+        self.queue_table.setItem(row, 2, status_item)
+        self.log(f"Added to queue via drag-drop: {os.path.basename(file_path)}")
 
     def create_info_card(self, title, accent_color="#00E676"):
         frame = QFrame()
@@ -146,15 +198,13 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(bottom_layout)
 
     def log(self, text):
-        # Clean text for session log (no HTML)
         clean_text = text.replace("<b>", "").replace("</b>", "").replace("<font color=", "").replace("</font>", "").replace(">", "")
         self.session_log.append(clean_text)
 
-        # Apply coloring for UI consoles
         color = "#E0E0E0"
-        if text.startswith(">"): color = "#FFEB3B"  # Yellow for commands
-        elif "OKAY" in text or "Success" in text or "finished" in text: color = "#00E676"  # Green
-        elif "FAILED" in text or "error" in text or "Error" in text: color = "#F44336"  # Red
+        if text.startswith(">"): color = "#FFEB3B"
+        elif "OKAY" in text or "Success" in text or "finished" in text: color = "#00E676"
+        elif "FAILED" in text or "error" in text or "Error" in text: color = "#F44336"
         
         html_text = f'<font color="{color}">{text}</font>'
         
@@ -162,7 +212,6 @@ class MainWindow(QMainWindow):
         if hasattr(self, 'fb_console'): self.fb_console.append(html_text)
         if hasattr(self, 'adb_console'): self.adb_console.append(html_text)
         
-        # Auto-scroll
         self.console.moveCursor(QTextCursor.End)
         if hasattr(self, 'fb_console'): self.fb_console.moveCursor(QTextCursor.End)
         if hasattr(self, 'adb_console'): self.adb_console.moveCursor(QTextCursor.End)
@@ -173,21 +222,15 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(25, 25, 25, 25)
         layout.setSpacing(20)
         
-        # Grid for Info Cards
         grid = QGridLayout()
         grid.setSpacing(15)
         
         self.cards = {}
-        # Core Identity
         self.cards["Model_card"], self.info_labels["Model"] = self.create_info_card("Device Model")
         self.cards["Product_card"], self.info_labels["Build/Product"] = self.create_info_card("Build/Product")
         self.cards["State_card"], self.info_labels["State"] = self.create_info_card("Connection Mode", "#1565c0")
         self.cards["Root_card"], self.info_labels["Root"] = self.create_info_card("Root Status", "#FFC107")
-        
-        # Status/Security
         self.cards["Bootloader_card"], self.info_labels["Bootloader"] = self.create_info_card("Bootloader State", "#F44336")
-        
-        # Live Metrics (ADB Only)
         self.cards["Battery_card"], self.lbl_battery = self.create_info_card("Battery Level", "#4CAF50")
         self.cards["Temp_card"], self.lbl_temp = self.create_info_card("CPU Temp", "#FF9800")
         self.cards["Storage_card"], self.lbl_storage = self.create_info_card("Storage (Internal)", "#2196F3")
@@ -202,16 +245,13 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(grid)
 
-        # Bottom Actions
         actions_layout = QHBoxLayout()
         btn_refresh = QPushButton("Refresh All Info")
         btn_refresh.setFixedHeight(40)
         btn_refresh.clicked.connect(self.on_device_selected)
-        
         actions_layout.addWidget(btn_refresh)
         layout.addLayout(actions_layout)
 
-        # Wireless Connection remains at bottom
         conn_group = QGroupBox("Wireless ADB Connector")
         conn_layout = QHBoxLayout()
         self.ip_input = QLineEdit()
@@ -222,6 +262,22 @@ class MainWindow(QMainWindow):
         conn_layout.addWidget(btn_connect)
         conn_group.setLayout(conn_layout)
         layout.addWidget(conn_group)
+
+        terminal_group = QGroupBox("Manual Command Terminal")
+        terminal_layout = QHBoxLayout()
+        self.terminal_tool_combo = QComboBox()
+        self.terminal_tool_combo.addItems(["adb", "fastboot"])
+        self.terminal_tool_combo.setFixedWidth(100)
+        self.terminal_input = QLineEdit()
+        self.terminal_input.setPlaceholderText("Enter command (e.g. shell uptime or devices)")
+        self.terminal_input.returnPressed.connect(self.run_manual_command)
+        btn_terminal_exec = QPushButton("Execute")
+        btn_terminal_exec.clicked.connect(self.run_manual_command)
+        terminal_layout.addWidget(self.terminal_tool_combo)
+        terminal_layout.addWidget(self.terminal_input, 1)
+        terminal_layout.addWidget(btn_terminal_exec)
+        terminal_group.setLayout(terminal_layout)
+        layout.addWidget(terminal_group)
         
         layout.addStretch()
         self.tabs.addTab(tab, "Dashboard")
@@ -230,10 +286,8 @@ class MainWindow(QMainWindow):
         tab = QWidget()
         layout = QHBoxLayout(tab)
         layout.setContentsMargins(10, 10, 10, 10)
-        
         splitter = QSplitter(Qt.Horizontal)
         
-        # Left Panel: Controls
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
@@ -243,7 +297,6 @@ class MainWindow(QMainWindow):
         btn_install = QPushButton("Install APK Package")
         btn_install.setFixedHeight(35)
         btn_install.clicked.connect(self.install_apk)
-        
         uninstall_layout = QHBoxLayout()
         self.pkg_input = QLineEdit()
         self.pkg_input.setPlaceholderText("com.package.name")
@@ -251,7 +304,6 @@ class MainWindow(QMainWindow):
         btn_uninstall.clicked.connect(lambda: self.run_command(f"adb uninstall {self.pkg_input.text()}", safety=True))
         uninstall_layout.addWidget(self.pkg_input)
         uninstall_layout.addWidget(btn_uninstall)
-        
         app_layout.addWidget(btn_install)
         app_layout.addLayout(uninstall_layout)
         app_group.setLayout(app_layout)
@@ -260,17 +312,43 @@ class MainWindow(QMainWindow):
         cmd_group = QGroupBox("Custom ADB Shell")
         cmd_layout = QVBoxLayout()
         self.adb_cmd_input = QLineEdit()
-        self.adb_cmd_input.setPlaceholderText("shell getprop ro.serialno")
+        self.adb_cmd_input.setPlaceholderText("shell pm list packages")
         btn_exec = QPushButton("Run Command")
-        btn_exec.clicked.connect(lambda: self.run_command(f"adb {self.adb_cmd_input.text()}"))
+        btn_exec.clicked.connect(self.run_custom_adb)
         cmd_layout.addWidget(self.adb_cmd_input)
         cmd_layout.addWidget(btn_exec)
+        
+        btn_shell = QPushButton("Open Interactive ADB Shell")
+        btn_shell.setFixedHeight(35)
+        btn_shell.setStyleSheet("background-color: #1B5E20; font-weight: bold;")
+        btn_shell.clicked.connect(self.open_interactive_shell)
+        cmd_layout.addWidget(btn_shell)
         cmd_group.setLayout(cmd_layout)
         left_layout.addWidget(cmd_group)
+
+        # Sideload Group
+        sideload_group = QGroupBox("ADB Sideload (Recovery)")
+        sideload_layout = QVBoxLayout()
+        btn_reboot_sideload = QPushButton("Reboot to Sideload Mode")
+        btn_reboot_sideload.clicked.connect(lambda: self.run_command("adb reboot sideload"))
+        sideload_input_layout = QHBoxLayout()
+        self.sideload_path_edit = QLineEdit()
+        self.sideload_path_edit.setPlaceholderText("Select .zip or .apk to sideload")
+        btn_browse_sideload = QPushButton("Browse...")
+        btn_browse_sideload.clicked.connect(self.browse_sideload_file)
+        sideload_input_layout.addWidget(self.sideload_path_edit)
+        sideload_input_layout.addWidget(btn_browse_sideload)
+        btn_sideload_exec = QPushButton("START SIDELOAD")
+        btn_sideload_exec.setStyleSheet("background-color: #6A1B9A; font-weight: bold; height: 35px;")
+        btn_sideload_exec.clicked.connect(self.run_sideload)
+        sideload_layout.addWidget(btn_reboot_sideload)
+        sideload_layout.addLayout(sideload_input_layout)
+        sideload_layout.addWidget(btn_sideload_exec)
+        sideload_group.setLayout(sideload_layout)
+        left_layout.addWidget(sideload_group)
         
         left_layout.addStretch()
         
-        # Right Panel: ADB Console
         right_panel = QGroupBox("ADB Console Output")
         right_layout = QVBoxLayout()
         self.adb_console = QTextEdit()
@@ -283,7 +361,6 @@ class MainWindow(QMainWindow):
         splitter.addWidget(right_panel)
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 1)
-        
         layout.addWidget(splitter)
         self.tabs.addTab(tab, "ADB Tools")
 
@@ -291,10 +368,8 @@ class MainWindow(QMainWindow):
         tab = QWidget()
         layout = QHBoxLayout(tab)
         layout.setContentsMargins(10, 10, 10, 10)
-        
         splitter = QSplitter(Qt.Horizontal)
         
-        # Left Panel: Flashing & Formatting
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
         left_layout.setContentsMargins(0, 0, 0, 0)
@@ -311,7 +386,6 @@ class MainWindow(QMainWindow):
 
         queue_group = QGroupBox("Partition Flash Queue")
         queue_layout = QVBoxLayout()
-        
         input_layout = QHBoxLayout()
         self.partition_combo = QComboBox()
         self.partition_combo.setEditable(True)
@@ -319,7 +393,6 @@ class MainWindow(QMainWindow):
         btn_fetch.clicked.connect(self.fetch_partitions)
         btn_browse = QPushButton("Add Images")
         btn_browse.clicked.connect(lambda: self.browse_file())
-        
         input_layout.addWidget(self.partition_combo, 1)
         input_layout.addWidget(btn_fetch)
         input_layout.addWidget(btn_browse)
@@ -337,10 +410,8 @@ class MainWindow(QMainWindow):
         self.btn_flash.setFixedHeight(40)
         self.btn_flash.setEnabled(False)
         self.btn_flash.clicked.connect(self.process_queue)
-        
         btn_clear = QPushButton("Clear All")
         btn_clear.clicked.connect(lambda: self.queue_table.setRowCount(0))
-        
         queue_layout.addWidget(self.btn_flash)
         queue_layout.addWidget(btn_clear)
         queue_group.setLayout(queue_layout)
@@ -356,7 +427,6 @@ class MainWindow(QMainWindow):
         btn_format.clicked.connect(self.format_partition)
         btn_erase = QPushButton("Erase")
         btn_erase.clicked.connect(lambda: self.run_command(f"fastboot erase {self.fmt_partition_combo.currentText()}", safety=True))
-        
         fmt_layout.addWidget(QLabel("Partition:"), 0, 0)
         fmt_layout.addWidget(self.fmt_partition_combo, 0, 1)
         fmt_layout.addWidget(QLabel("FS:"), 1, 0)
@@ -366,7 +436,6 @@ class MainWindow(QMainWindow):
         fmt_group.setLayout(fmt_layout)
         left_layout.addWidget(fmt_group)
         
-        # Right Panel: Flash Console
         right_panel = QGroupBox("Fastboot Transaction Log")
         right_layout = QVBoxLayout()
         self.fb_console = QTextEdit()
@@ -379,7 +448,6 @@ class MainWindow(QMainWindow):
         splitter.addWidget(right_panel)
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 1)
-        
         layout.addWidget(splitter)
         self.tabs.addTab(tab, "Fastboot Tools")
 
@@ -391,22 +459,17 @@ class MainWindow(QMainWindow):
         self.console.setReadOnly(True)
         self.console.setStyleSheet("background-color: black; color: #00ff00; font-family: 'Courier New'; font-size: 12px;")
         layout.addWidget(self.console)
-        
         btn_layout = QHBoxLayout()
         btn_clear = QPushButton("Clear Console")
         btn_clear.clicked.connect(self.console.clear)
-        
         btn_save = QPushButton("Save Session Logs")
         btn_save.clicked.connect(self.save_logs)
-        
         btn_boot = QPushButton("Start Boot Monitor")
         btn_boot.clicked.connect(self.boot_monitor)
-        
         btn_layout.addWidget(btn_clear)
         btn_layout.addWidget(btn_save)
         btn_layout.addWidget(btn_boot)
         layout.addLayout(btn_layout)
-        
         self.tabs.addTab(tab, "Console Logs")
 
     def refresh_devices(self):
@@ -424,33 +487,34 @@ class MainWindow(QMainWindow):
     def on_device_selected(self):
         serial = self.device_combo.currentData()
         if not serial: return
-        
         text = self.device_combo.currentText()
         is_fastboot = "FASTBOOT" in text
-        
-        # Reset labels
+        is_sideload = "SIDELOAD" in text
         for lbl in self.info_labels.values(): lbl.setText("Fetching...")
         self.lbl_battery.setText("N/A")
         self.lbl_temp.setText("N/A")
         self.lbl_storage.setText("N/A")
-
-        # Highlight Connection Mode Card
-        mode_bg = "#1A237E" if not is_fastboot else "#311B92" # Deep Blue for ADB, Deep Purple for Fastboot
+        mode_bg = "#1A237E" 
+        if is_fastboot: mode_bg = "#311B92"
+        elif is_sideload: mode_bg = "#4A148C"
         self.cards["State_card"].setStyleSheet(f"background-color: {mode_bg}; border: 1px solid #00E676; border-radius: 8px; border-left: 4px solid #1565c0;")
-
         if is_fastboot:
             info = get_fastboot_info(serial)
             self.info_labels["Model"].setText("N/A")
             self.info_labels["Build/Product"].setText(info["Product"])
             self.info_labels["State"].setText("FASTBOOT")
-            
             bl_state = info["Unlocked"]
             self.info_labels["Bootloader"].setText("Unlocked" if bl_state == "yes" else "Locked" if bl_state == "no" else "Unknown")
             color = "#00E676" if bl_state == "yes" else "#E53935" if bl_state == "no" else "#AAAAAA"
             self.cards["Bootloader_card"].setStyleSheet(f"background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid {color};")
-            
             self.info_labels["Root"].setText("N/A")
             self.fetch_partitions()
+        elif is_sideload:
+            self.info_labels["Model"].setText("N/A")
+            self.info_labels["Build/Product"].setText("N/A")
+            self.info_labels["State"].setText("SIDELOAD")
+            self.info_labels["Bootloader"].setText("N/A")
+            self.info_labels["Root"].setText("N/A")
         else:
             info = get_adb_info(serial)
             self.info_labels["Model"].setText(info["Model"])
@@ -458,18 +522,14 @@ class MainWindow(QMainWindow):
             self.info_labels["State"].setText("ADB")
             self.info_labels["Bootloader"].setText("N/A (check in Fastboot)")
             self.cards["Bootloader_card"].setStyleSheet("background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid #F44336;")
-            
             self.info_labels["Root"].setText(info["Root"])
             color = "#00E676" if info["Root"] == "Yes" else "#E53935"
             self.cards["Root_card"].setStyleSheet(f"background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid {color};")
-            
             self.update_live_metrics()
 
     def update_live_metrics(self):
         serial = self.device_combo.currentData()
-        if not serial or "ADB" not in self.device_combo.currentText():
-            return
-            
+        if not serial or "ADB" not in self.device_combo.currentText(): return
         metrics = get_adb_metrics(serial)
         self.lbl_battery.setText(metrics["Battery"])
         self.lbl_temp.setText(metrics["Temp"])
@@ -480,8 +540,7 @@ class MainWindow(QMainWindow):
         if not serial: return
         is_adb = "ADB" in self.device_combo.currentText()
         cmd = f"adb reboot {mode.lower()}" if is_adb else f"fastboot reboot {mode.lower()}"
-        if mode == "System":
-             cmd = "adb reboot" if is_adb else "fastboot reboot"
+        if mode == "System": cmd = "adb reboot" if is_adb else "fastboot reboot"
         self.run_command(cmd)
 
     def fetch_partitions(self):
@@ -490,18 +549,15 @@ class MainWindow(QMainWindow):
             cats = fetch_partitions_from_device(serial)
             for combo in [self.partition_combo, self.fmt_partition_combo]:
                 combo.clear()
-                
                 if cats["Standard"]:
                     combo.addItem("--- STANDARD PARTITIONS ---")
                     combo.model().item(combo.count()-1).setEnabled(False)
                     combo.addItems(cats["Standard"])
-                
                 if cats["Critical/Advanced"]:
                     if cats["Standard"]: combo.insertSeparator(combo.count())
                     combo.addItem("--- CRITICAL/ADVANCED ---")
                     combo.model().item(combo.count()-1).setEnabled(False)
                     combo.addItems(cats["Critical/Advanced"])
-                
                 if cats["Standard"]: combo.setCurrentIndex(1)
 
     def browse_file(self, key="last_image_dir"):
@@ -514,15 +570,12 @@ class MainWindow(QMainWindow):
                 partition = selected_part if selected_part else os.path.basename(f).lower().replace(".img", "").replace(".bin", "")
                 row = self.queue_table.rowCount()
                 self.queue_table.insertRow(row)
-                
                 part_item = QTableWidgetItem(partition)
                 self.queue_table.setItem(row, 0, part_item)
-                
                 file_item = QTableWidgetItem(f)
                 file_item.setFlags(file_item.flags() & ~Qt.ItemIsEditable)
                 file_item.setToolTip(f)
                 self.queue_table.setItem(row, 1, file_item)
-                
                 status_item = QTableWidgetItem("Pending")
                 status_item.setFlags(status_item.flags() & ~Qt.ItemIsEditable)
                 self.queue_table.setItem(row, 2, status_item)
@@ -549,50 +602,37 @@ class MainWindow(QMainWindow):
             warning_msg = f"This operation will run the following command:\n\n{cmd}\n\n"
             if any(x in cmd for x in ["flash", "erase", "format", "uninstall"]):
                 warning_msg += "WARNING: This is a high-risk operation that could result in data loss or a bricked device if used incorrectly.\n\n"
-            
             warning_msg += "Do you want to proceed?"
-            
-            reply = QMessageBox.warning(self, "Safety Verification", warning_msg,
-                                        QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            reply = QMessageBox.warning(self, "Safety Verification", warning_msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply == QMessageBox.No: return
 
         self.set_ui_enabled(False)
         self.log(f"> {cmd}")
         self.thread = CommandThread(cmd)
         self.thread.output_signal.connect(self.log)
-        
         def on_finished_internal(code):
             self.set_ui_enabled(True)
             if callback: callback(code)
-            
         self.thread.finished_signal.connect(on_finished_internal)
         self.thread.start()
 
     def update_queue_validation(self):
         has_items = self.queue_table.rowCount() > 0
-        if hasattr(self, 'btn_flash'):
-            self.btn_flash.setEnabled(has_items)
+        if hasattr(self, 'btn_flash'): self.btn_flash.setEnabled(has_items)
 
     def process_queue(self):
         count = self.queue_table.rowCount()
         if count == 0: return
-        
         cmds = []
         serial = self.device_combo.currentData()
         for i in range(count):
             p = self.queue_table.item(i, 0).text().strip()
             f = self.queue_table.item(i, 1).text().strip()
             base_cmd = f"fastboot flash {p} \"{f}\""
-            if serial:
-                base_cmd = base_cmd.replace("fastboot", f"fastboot -s {serial}", 1)
+            if serial: base_cmd = base_cmd.replace("fastboot", f"fastboot -s {serial}", 1)
             cmds.append(base_cmd)
-        
-        msg = "This operation will run the following commands:\n\n" + "\n".join(cmds) + \
-              "\n\nCRITICAL WARNING: Improper flashing can permanently damage your device.\nPROCEED WITH CAUTION!"
-        
-        reply = QMessageBox.critical(self, "Batch Safety Verification", msg, 
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-        
+        msg = "This operation will run the following commands:\n\n" + "\n".join(cmds) + "\n\nCRITICAL WARNING: Improper flashing can permanently damage your device.\nPROCEED WITH CAUTION!"
+        reply = QMessageBox.critical(self, "Batch Safety Verification", msg, QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes and not self.is_flashing:
             self.is_flashing = True
             self.btn_flash.setEnabled(False)
@@ -606,12 +646,10 @@ class MainWindow(QMainWindow):
         if self.current_row < self.queue_table.rowCount():
             p = self.queue_table.item(self.current_row, 0).text().strip()
             f = self.queue_table.item(self.current_row, 1).text().strip()
-            
             if not p:
                 self.log(f"Error: No partition specified for {f}")
                 self.on_finished(-1)
                 return
-                
             self.queue_table.setItem(self.current_row, 2, QTableWidgetItem("Flashing..."))
             self.run_batch_command(f'fastboot flash {p} "{f}"', self.on_finished)
         else:
@@ -624,9 +662,7 @@ class MainWindow(QMainWindow):
 
     def run_batch_command(self, cmd, callback):
         serial = self.device_combo.currentData()
-        if serial and "fastboot" in cmd: 
-            cmd = cmd.replace("fastboot", f"fastboot -s {serial}", 1)
-        
+        if serial and "fastboot" in cmd: cmd = cmd.replace("fastboot", f"fastboot -s {serial}", 1)
         self.log(f"> {cmd}")
         self.thread = CommandThread(cmd)
         self.thread.output_signal.connect(self.log)
@@ -637,13 +673,11 @@ class MainWindow(QMainWindow):
         success = code == 0
         status = "Success" if success else "Failed"
         color = "#00E676" if success else "#F44336"
-        
         status_item = QTableWidgetItem(status)
         status_item.setForeground(QColor(color))
         font = status_item.font()
         font.setBold(True)
         status_item.setFont(font)
-        
         self.queue_table.setItem(self.current_row, 2, status_item)
         self.current_row += 1
         self.progress.setValue(self.current_row)
@@ -668,7 +702,81 @@ class MainWindow(QMainWindow):
         if "ADB" not in self.device_combo.currentText():
             QMessageBox.warning(self, "Monitor Error", "Boot monitor requires ADB mode.")
             return
-            
         filename = start_boot_monitor(serial)
         self.run_command(f"adb -s {serial} logcat -v time > {filename} &")
         QMessageBox.information(self, "Boot Monitor", f"Boot monitoring started. Saving to: {filename}")
+
+    def run_manual_command(self):
+        tool = self.terminal_tool_combo.currentText()
+        cmd_text = self.terminal_input.text().strip()
+        if not cmd_text: return
+        if cmd_text == "shell" or cmd_text.startswith("shell "):
+            if len(cmd_text.split()) == 1:
+                QMessageBox.warning(self, "Command Blocked", "Interactive shell is not supported. Please provide a specific command (e.g., 'shell getprop').")
+                return
+        full_cmd = f"{tool} {cmd_text}"
+        is_dangerous = any(x in cmd_text.lower() for x in ["flash", "erase", "format", "repartition", "uninstall", "rm "])
+        self.tabs.setCurrentIndex(3)
+        self.run_command(full_cmd, safety=is_dangerous)
+        self.terminal_input.clear()
+
+    def run_custom_adb(self):
+        cmd_text = self.adb_cmd_input.text().strip()
+        if not cmd_text: return
+        if cmd_text == "shell":
+            QMessageBox.warning(self, "Command Blocked", "Interactive shell is not supported in this console. Click 'Open Interactive ADB Shell' instead.")
+            return
+        if cmd_text.startswith("adb "): cmd_text = cmd_text[4:].strip()
+        self.run_command(f"adb {cmd_text}")
+        self.adb_cmd_input.clear()
+
+    def open_interactive_shell(self):
+        serial = self.device_combo.currentData()
+        if not serial or "ADB" not in self.device_combo.currentText():
+            QMessageBox.warning(self, "Connection Error", "Please select a device in ADB mode first.")
+            return
+        import platform
+        import subprocess
+        cmd = f"adb -s {serial} shell"
+        self.log(f"Launching external terminal for shell: {serial}")
+        try:
+            if platform.system() == "Windows":
+                subprocess.Popen(["cmd.exe", "/c", f"start cmd.exe /k {cmd}"])
+            else:
+                terminals = [
+                    ["gnome-terminal", "--", "bash", "-c", f"{cmd}; exec bash"],
+                    ["konsole", "-e", "bash", "-c", f"{cmd}; exec bash"],
+                    ["xfce4-terminal", "-e", f"bash -c '{cmd}; exec bash'"],
+                    ["xterm", "-e", f"bash -c '{cmd}; exec bash'"]
+                ]
+                success = False
+                for term in terminals:
+                    try:
+                        subprocess.Popen(term)
+                        success = True
+                        break
+                    except FileNotFoundError: continue
+                if not success:
+                    QMessageBox.warning(self, "Terminal Error", "Could not find a supported terminal emulator (gnome-terminal, konsole, xterm, etc.).")
+        except Exception as e:
+            self.log(f"Error launching shell: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to launch interactive shell: {str(e)}")
+
+    def browse_sideload_file(self):
+        last_dir = self.settings.get_last_dir("last_sideload_dir")
+        f, _ = QFileDialog.getOpenFileName(self, "Select Sideload File", last_dir, "Sideload Files (*.zip *.apk)")
+        if f:
+            self.settings.set_last_dir(os.path.dirname(f), "last_sideload_dir")
+            self.sideload_path_edit.setText(f)
+
+    def run_sideload(self):
+        path = self.sideload_path_edit.text().strip()
+        if not path or not os.path.exists(path):
+            QMessageBox.warning(self, "File Error", "Please select a valid .zip or .apk file to sideload.")
+            return
+        serial = self.device_combo.currentData()
+        mode_text = self.device_combo.currentText()
+        if "ADB" not in mode_text and "SIDELOAD" not in mode_text:
+            QMessageBox.warning(self, "Mode Error", "Sideload requires the device to be in ADB/Sideload mode.")
+            return
+        self.run_command(f'adb sideload "{path}"')

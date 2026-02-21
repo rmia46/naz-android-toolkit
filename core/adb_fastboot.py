@@ -20,6 +20,9 @@ def get_devices():
             if "device" in line and not "offline" in line:
                 serial = line.split()[0]
                 devices.append({"type": "ADB", "serial": serial})
+            elif "sideload" in line:
+                serial = line.split()[0]
+                devices.append({"type": "SIDELOAD", "serial": serial})
     except: pass
     
     # Scan Fastboot
