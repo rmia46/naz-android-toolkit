@@ -1,5 +1,7 @@
 import os
 import sys
+import shutil
+import subprocess
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QFileDialog, QTextEdit, QComboBox, 
                              QGroupBox, QLineEdit, QProgressBar, QTableWidget,
@@ -266,19 +268,11 @@ class MainWindow(QMainWindow):
         btn_dex.setStyleSheet("background-color: #0D47A1; font-weight: bold;")
         btn_dex.clicked.connect(lambda: self.launch_scrcpy("dex"))
         
-        btn_game = QPushButton("Gaming Mode (60 FPS)")
-        btn_game.clicked.connect(lambda: self.launch_scrcpy("gaming"))
-
-        btn_wake = QPushButton("Wake & Dismiss Lock")
-        btn_wake.clicked.connect(lambda: self.run_command("adb shell input keyevent KEYCODE_WAKE && adb shell wm dismiss-keyguard"))
-        
         self.chk_audio = QCheckBox("Forward Audio (Android 11+)")
         self.chk_audio.setStyleSheet("color: #AAAAAA; font-size: 11px;")
         
         mirror_layout.addWidget(btn_mirror)
         mirror_layout.addWidget(btn_dex)
-        mirror_layout.addWidget(btn_game)
-        mirror_layout.addWidget(btn_wake)
         mirror_layout.addWidget(self.chk_audio)
         mirror_group.setLayout(mirror_layout)
         layout.addWidget(mirror_group)
@@ -929,9 +923,7 @@ class MainWindow(QMainWindow):
             self.run_command(f"adb connect {ip}")
 
     def launch_scrcpy(self, mode):
-        import shutil
         scrcpy_path = shutil.which("scrcpy")
-        
         if not scrcpy_path:
             QMessageBox.critical(self, "Missing Tool", "Scrcpy executable not found in system PATH.")
             return
@@ -942,32 +934,30 @@ class MainWindow(QMainWindow):
             return
 
         # Build command list
-        cmd_args = [scrcpy_path, "-s", serial, "--always-on-top"]
-        
-        if not self.chk_audio.isChecked():
-            cmd_args += ["--no-audio"]
+        cmd_args = [scrcpy_path, "-s", serial, "--always-on-top", "--no-audio"]
         
         if mode == "dex":
-            # PRE-LAUNCH: Wake up the device and dismiss the keyguard if possible
-            # This helps prevent immediate locking when screen turns off
+            # Session Start: Wake up the device
             wake_cmd = f"adb -s {serial} shell 'input keyevent KEYCODE_WAKE && wm dismiss-keyguard'"
-            import subprocess
-            subprocess.run(wake_cmd, shell=True)
+            try: subprocess.run(wake_cmd, shell=True, capture_output=True)
+            except: pass
 
-            cmd_args += ["--turn-screen-off", "--stay-awake", "--disable-screensaver"]
-            self.log("Launching DeX Mode (Screen Off)...")
+            cmd_args += [
+                "--turn-screen-off", 
+                "--stay-awake", 
+                "--disable-screensaver",
+                "--power-off-on-close",
+                "--max-fps", "60",
+                "--video-bit-rate", "16M"
+            ]
+            self.log("Launching Ultimate DeX Mode...")
         elif mode == "gaming":
-            # Removed --mouse-capture as it can be confusing for standard UI navigation
             cmd_args += ["--max-fps", "60", "--video-bit-rate", "16M"]
-            self.log("Launching Gaming Mode (High Performance)...")
+            self.log("Launching Gaming Mode...")
         else:
             self.log("Launching Standard Mirroring...")
 
-        self.log("<font color='#FFA000'>Note: If mouse clicks don't work, enable 'USB Debugging (Security Settings)' in your phone's Developer Options.</font>")
-
-        import subprocess
         try:
-            # Launch scrcpy as a detached process
             if sys.platform == "win32":
                 subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
             else:
