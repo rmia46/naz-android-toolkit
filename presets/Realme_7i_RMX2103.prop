@@ -1,0 +1,60 @@
+# Global Identity
+ro.product.brand=realme
+ro.product.manufacturer=realme
+ro.product.model=Realme 7i
+ro.product.name=RMX2103
+ro.product.device=RE50C1
+ro.build.product=RMX2103
+
+# System Partition
+ro.product.system.brand=realme
+ro.product.system.manufacturer=realme
+ro.product.system.model=Realme 7i
+ro.product.system.name=RMX2103
+ro.product.system.device=RE50C1
+ro.system.product.manufacturer=realme
+ro.system.product.brand=realme
+
+# Vendor Partition
+ro.product.vendor.brand=realme
+ro.product.vendor.manufacturer=realme
+ro.product.vendor.model=Realme 7i
+ro.product.vendor.name=RMX2103
+ro.product.vendor.device=RE50C1
+
+# Product Partition
+ro.product.product.brand=realme
+ro.product.product.manufacturer=realme
+ro.product.product.model=Realme 7i
+ro.product.product.name=RMX2103
+ro.product.product.device=RE50C1
+
+# System_ext Partition
+ro.product.system_ext.brand=realme
+ro.product.system_ext.manufacturer=realme
+ro.product.system_ext.model=Realme 7i
+ro.product.system_ext.name=RMX2103
+ro.product.system_ext.device=RE50C1
+
+# ODM Partition
+ro.product.odm.brand=realme
+ro.product.odm.manufacturer=realme
+ro.product.odm.model=Realme 7i
+ro.product.odm.name=RMX2103
+ro.product.odm.device=RE50C1
+
+# Bootimage Partition
+ro.product.bootimage.brand=realme
+ro.product.bootimage.manufacturer=realme
+ro.product.bootimage.model=Realme 7i
+ro.product.bootimage.name=RMX2103
+ro.product.bootimage.device=RE50C1
+
+# Fingerprint Consistency
+ro.build.description=RMX2103-user 11 RKQ1.201217.002 1657488232232 release-keys
+ro.build.fingerprint=realme/RMX2103/RE50C1:11/RKQ1.201217.002/1657488232232:user/release-keys
+ro.system.build.fingerprint=realme/RMX2103/RE50C1:11/RKQ1.201217.002/1657488232232:user/release-keys
+ro.vendor.build.fingerprint=realme/RMX2103/RE50C1:11/RKQ1.201217.002/1657488232232:user/release-keys
+ro.product.build.fingerprint=realme/RMX2103/RE50C1:11/RKQ1.201217.002/1657488232232:user/release-keys
+ro.system_ext.build.fingerprint=realme/RMX2103/RE50C1:11/RKQ1.201217.002/1657488232232:user/release-keys
+ro.odm.build.fingerprint=realme/RMX2103/RE50C1:11/RKQ1.201217.002/1657488232232:user/release-keys

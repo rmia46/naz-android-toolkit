@@ -36,7 +36,7 @@ QTextEdit { background-color: #000000; border: 1px solid #333333; border-radius:
 QLabel { padding: 1px 0px; }
 """
 
-APP_VERSION = "v1.1.3"
+APP_VERSION = "v1.2.0"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -48,6 +48,8 @@ class MainWindow(QMainWindow):
         self.session_log = []
         self.settings = SettingsManager()
         self.info_labels = {}
+        self.modified_props = {}
+        self.active_threads = []
         
         self.setStyleSheet(STYLESHEET)
         self.init_ui()
@@ -183,6 +185,7 @@ class MainWindow(QMainWindow):
         self.setup_dashboard_tab()
         self.setup_adb_tab()
         self.setup_fastboot_tab()
+        self.setup_tweaks_tab()
         self.setup_logs_tab()
 
         # Bottom UI
@@ -451,6 +454,85 @@ class MainWindow(QMainWindow):
         layout.addWidget(splitter)
         self.tabs.addTab(tab, "Fastboot Tools")
 
+    def setup_tweaks_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(10, 10, 10, 10)
+        splitter = QSplitter(Qt.Horizontal)
+        
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        
+        spoof_group = QGroupBox("Device Identity Spoofing (Play Integrity Fix)")
+        spoof_layout = QVBoxLayout()
+        preset_layout = QHBoxLayout()
+        self.preset_combo = QComboBox()
+        self.load_presets()
+        
+        btn_apply_preset = QPushButton("Apply Preset (Live)")
+        btn_apply_preset.clicked.connect(self.apply_identity_preset)
+        
+        btn_gen_script = QPushButton("Install Permanent Fix (Magisk)")
+        btn_gen_script.setStyleSheet("background-color: #4A148C; font-weight: bold;")
+        btn_gen_script.clicked.connect(self.install_magisk_fix)
+        
+        preset_layout.addWidget(self.preset_combo, 1)
+        preset_layout.addWidget(btn_apply_preset)
+        preset_layout.addWidget(btn_gen_script)
+        spoof_layout.addLayout(preset_layout)
+        spoof_layout.addWidget(QLabel("<font color='#FFA000'>Note: Requires Magisk/Root. Changes use 'resetprop'.</font>"))
+        spoof_group.setLayout(spoof_layout)
+        left_layout.addWidget(spoof_group)
+
+        prop_group = QGroupBox("Custom Build Property Editor")
+        prop_layout = QVBoxLayout()
+        search_layout = QHBoxLayout()
+        self.prop_search = QLineEdit()
+        self.prop_search.setPlaceholderText("Search for a prop (e.g. ro.build...)")
+        btn_read_all = QPushButton("Read All Props")
+        btn_read_all.clicked.connect(self.read_all_props)
+        btn_export_props = QPushButton("Save to File")
+        btn_export_props.clicked.connect(self.export_props_to_file)
+        search_layout.addWidget(self.prop_search)
+        search_layout.addWidget(btn_read_all)
+        search_layout.addWidget(btn_export_props)
+        
+        self.prop_table = QTableWidget(0, 2)
+        self.prop_table.setHorizontalHeaderLabels(["Property Key", "Value"])
+        self.prop_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.prop_table.itemChanged.connect(self.track_prop_change)
+        
+        batch_btn_layout = QHBoxLayout()
+        btn_apply_all = QPushButton("APPLY ALL CHANGES")
+        btn_apply_all.setStyleSheet("background-color: #1B5E20; font-weight: bold; height: 35px;")
+        btn_apply_all.clicked.connect(self.apply_all_props)
+        btn_clear_pending = QPushButton("Clear Pending")
+        btn_clear_pending.clicked.connect(self.clear_pending_props)
+        batch_btn_layout.addWidget(btn_apply_all, 2)
+        batch_btn_layout.addWidget(btn_clear_pending, 1)
+        
+        prop_layout.addLayout(search_layout)
+        prop_layout.addWidget(self.prop_table)
+        prop_layout.addLayout(batch_btn_layout)
+        prop_group.setLayout(prop_layout)
+        left_layout.addWidget(prop_group, 1)
+        
+        right_panel = QGroupBox("System Tweak Logs")
+        right_layout = QVBoxLayout()
+        self.tweak_console = QTextEdit()
+        self.tweak_console.setReadOnly(True)
+        self.tweak_console.setStyleSheet("background-color: #0A0A0A; color: #00E676; font-family: 'Courier New';")
+        right_layout.addWidget(self.tweak_console)
+        right_panel.setLayout(right_layout)
+        
+        splitter.addWidget(left_panel)
+        splitter.addWidget(right_panel)
+        splitter.setStretchFactor(0, 2)
+        splitter.setStretchFactor(1, 1)
+        layout.addWidget(splitter)
+        self.tabs.addTab(tab, "System Tweaks")
+
     def setup_logs_tab(self):
         tab = QWidget()
         layout = QVBoxLayout(tab)
@@ -608,13 +690,18 @@ class MainWindow(QMainWindow):
 
         self.set_ui_enabled(False)
         self.log(f"> {cmd}")
-        self.thread = CommandThread(cmd)
-        self.thread.output_signal.connect(self.log)
+        
+        thread = CommandThread(cmd)
+        self.active_threads.append(thread)
+        thread.output_signal.connect(self.log)
+        
         def on_finished_internal(code):
+            if thread in self.active_threads: self.active_threads.remove(thread)
             self.set_ui_enabled(True)
             if callback: callback(code)
-        self.thread.finished_signal.connect(on_finished_internal)
-        self.thread.start()
+            
+        thread.finished_signal.connect(on_finished_internal)
+        thread.start()
 
     def update_queue_validation(self):
         has_items = self.queue_table.rowCount() > 0
@@ -663,11 +750,19 @@ class MainWindow(QMainWindow):
     def run_batch_command(self, cmd, callback):
         serial = self.device_combo.currentData()
         if serial and "fastboot" in cmd: cmd = cmd.replace("fastboot", f"fastboot -s {serial}", 1)
+        if serial and "adb" in cmd: cmd = cmd.replace("adb", f"adb -s {serial}", 1)
+        
         self.log(f"> {cmd}")
-        self.thread = CommandThread(cmd)
-        self.thread.output_signal.connect(self.log)
-        self.thread.finished_signal.connect(callback)
-        self.thread.start()
+        thread = CommandThread(cmd)
+        self.active_threads.append(thread)
+        thread.output_signal.connect(self.log)
+        
+        def on_finished_batch(code):
+            if thread in self.active_threads: self.active_threads.remove(thread)
+            if callback: callback(code)
+            
+        thread.finished_signal.connect(on_finished_batch)
+        thread.start()
 
     def on_finished(self, code):
         success = code == 0
@@ -716,7 +811,7 @@ class MainWindow(QMainWindow):
                 return
         full_cmd = f"{tool} {cmd_text}"
         is_dangerous = any(x in cmd_text.lower() for x in ["flash", "erase", "format", "repartition", "uninstall", "rm "])
-        self.tabs.setCurrentIndex(3)
+        self.tabs.setCurrentIndex(4)
         self.run_command(full_cmd, safety=is_dangerous)
         self.terminal_input.clear()
 
@@ -780,3 +875,209 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Mode Error", "Sideload requires the device to be in ADB/Sideload mode.")
             return
         self.run_command(f'adb sideload "{path}"')
+
+    def load_presets(self):
+        self.preset_combo.clear()
+        self.preset_combo.addItem("Select Preset...")
+        presets_dir = get_resource_path("presets")
+        if os.path.exists(presets_dir):
+            for f in os.listdir(presets_dir):
+                if f.endswith(".prop"):
+                    name = f.replace(".prop", "").replace("_", " ")
+                    self.preset_combo.addItem(name, os.path.join(presets_dir, f))
+
+    def apply_identity_preset(self):
+        preset_name = self.preset_combo.currentText()
+        preset_path = self.preset_combo.currentData()
+        if not preset_path or "Select" in preset_name: return
+        serial = self.device_combo.currentData()
+        if not serial or "ADB" not in self.device_combo.currentText():
+            QMessageBox.warning(self, "Error", "Root access via ADB is required.")
+            return
+        reply = QMessageBox.critical(self, "Safety Verification", f"This will spoof your device as {preset_name}. Proceed?", QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.No: return
+        self.tweak_console.append(f"<b>Applying preset: {preset_name}</b>")
+        try:
+            commands = []
+            with open(preset_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"): continue
+                    if "=" in line:
+                        key, val = line.split("=", 1)
+                        commands.append(f"resetprop -n {key.strip()} \"{val.strip()}\"")
+            if not commands:
+                self.tweak_console.append("Error: Preset file is empty or invalid.")
+                return
+            full_script = " ; ".join(commands)
+            def on_preset_done(code):
+                if code == 0:
+                    self.tweak_console.append(f"<b>Preset '{preset_name}' commands sent successfully.</b>")
+                    self.log("Identity spoofed. Waiting for system sync...")
+                    QTimer.singleShot(2000, self.on_device_selected)
+                else:
+                    self.tweak_console.append(f"<b>Failed with code {code}</b>")
+                    if code == 13: QMessageBox.critical(self, "Root Denied", "Grant 'Shell' root in Magisk.")
+            self.run_command(f"adb shell su -c '{full_script}'", callback=on_preset_done)
+        except Exception as e: self.tweak_console.append(f"Error reading preset: {str(e)}")
+
+    def install_magisk_fix(self):
+        preset_name = self.preset_combo.currentText()
+        preset_path = self.preset_combo.currentData()
+        if not preset_path or "Select" in preset_name: return
+        
+        serial = self.device_combo.currentData()
+        if not serial: return
+
+        msg = (f"This will install a boot script to spoof your device as {preset_name}.\\n\\n"
+               "SAFETY FEATURES INCLUDED:\\n"
+               "- 30 second delay before applying (gives you time to react)\\n"
+               "- Automatic abort if device is in Safe Mode\\n\\n"
+               "Proceed?")
+        
+        reply = QMessageBox.warning(self, "Install Permanent Fix", msg, QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.No: return
+
+        self.tweak_console.append("<b>Generating Safe Magisk boot script...</b>")
+        
+        # Build the script with safety checks
+        script_lines = [
+            "#!/system/bin/sh",
+            "# Naz Android Toolkit - Permanent Identity Fix",
+            "exec > /data/local/tmp/nat_fix.log 2>&1", # Log errors to file
+            "echo 'NAT Fix: Script started'",
+            "sleep 30", # Safety delay
+            "if [ \"$(getprop persist.sys.safemode)\" = \"1\" ] || [ \"$(getprop ro.boot.safemode)\" = \"1\" ]; then",
+            "    echo 'NAT Fix: Safe Mode detected, aborting.'",
+            "    exit 0",
+            "fi",
+            "until [ \"$(getprop sys.boot_completed)\" = \"1\" ]; do sleep 2; done",
+            "echo 'NAT Fix: Applying properties...'"
+        ]
+        
+        try:
+            with open(preset_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"): continue
+                    if "=" in line:
+                        key, val = line.split("=", 1)
+                        script_lines.append(f"resetprop -n {key.strip()} \"{val.strip()}\"")
+            
+            script_lines.append("echo 'NAT Fix: All properties applied successfully.'")
+            script_content = "\n".join(script_lines)
+            
+            local_script = os.path.join(os.getcwd(), "nat_fix.sh")
+            with open(local_script, "w") as f:
+                f.write(script_content)
+            
+            target_path = "/data/adb/service.d/nat_fix.sh"
+            self.log(f"Pushing safe script to {target_path}...")
+            
+            push_cmd = f"adb -s {serial} push \"{local_script}\" /data/local/tmp/nat_fix.sh"
+            # More robust command: 
+            # 1. Ensure directory exists 
+            # 2. Use 'cp' or 'cat'
+            # 3. Fix permissions
+            full_su_cmd = (
+                "mkdir -p /data/adb/service.d && "
+                f"cat /data/local/tmp/nat_fix.sh > {target_path} && "
+                f"chmod 755 {target_path} && "
+                "rm /data/local/tmp/nat_fix.sh"
+            )
+            move_cmd = f"adb -s {serial} shell su -c \"{full_su_cmd}\""
+            
+            def on_install_done(code):
+                if code == 0:
+                    self.tweak_console.append("<b>Permanent fix installed! REBOOT your device.</b>")
+                    success_msg = ("Success! Script installed to /data/adb/service.d/nat_fix.sh\\n\\n"
+                                   "HOW TO RECOVER IF A BOOTLOOP OCCURS:\\n"
+                                   "1. Boot into TWRP Recovery.\\n"
+                                   "2. Go to Advanced -> File Manager.\\n"
+                                   "3. Delete /data/adb/service.d/nat_fix.sh\\n"
+                                   "4. Reboot to System.")
+                    QMessageBox.information(self, "Success", success_msg)
+                else:
+                    self.tweak_console.append(f"<font color='#F44336'>Failed to install script (Exit Code {code}).</font>")
+                    self.tweak_console.append("Try running 'adb shell su -c id' in the dashboard terminal to verify root.")
+
+            self.run_batch_command(push_cmd, lambda code: self.run_command(move_cmd, callback=on_install_done))
+            
+        except Exception as e:
+            self.tweak_console.append(f"Error: {str(e)}")
+
+    def read_all_props(self):
+        serial = self.device_combo.currentData()
+        if not serial: return
+        self.tweak_console.append("Fetching system properties...")
+        self.prop_table.setRowCount(0)
+        self.set_ui_enabled(False)
+        self.thread = CommandThread(f"adb -s {serial} shell getprop")
+        self.thread.output_signal.connect(self.populate_props)
+        self.thread.finished_signal.connect(lambda: self.set_ui_enabled(True))
+        self.thread.start()
+
+    def populate_props(self, line):
+        if ":" in line:
+            try:
+                parts = line.split(":", 1)
+                key = parts[0].strip("[] ")
+                val = parts[1].strip("[] ")
+                search_term = self.prop_search.text().lower()
+                if search_term and search_term not in key.lower(): return
+                row = self.prop_table.rowCount()
+                self.prop_table.blockSignals(True)
+                self.prop_table.insertRow(row)
+                key_item = QTableWidgetItem(key)
+                key_item.setFlags(key_item.flags() & ~Qt.ItemIsEditable)
+                self.prop_table.setItem(row, 0, key_item)
+                self.prop_table.setItem(row, 1, QTableWidgetItem(val))
+                self.prop_table.blockSignals(False)
+            except: pass
+
+    def track_prop_change(self, item):
+        if item.column() == 1:
+            row = item.row()
+            key = self.prop_table.item(row, 0).text()
+            new_val = item.text()
+            self.modified_props[key] = new_val
+            for col in range(2):
+                self.prop_table.item(row, col).setBackground(QColor("#455A64"))
+                self.prop_table.item(row, col).setForeground(QColor("#FFEB3B"))
+            self.tweak_console.append(f"Queued change: {key} -> {new_val}")
+
+    def clear_pending_props(self):
+        self.modified_props = {}
+        self.read_all_props()
+        self.tweak_console.append("Pending changes cleared.")
+
+    def apply_all_props(self):
+        if not self.modified_props:
+            QMessageBox.information(self, "No Changes", "No properties have been modified.")
+            return
+        reply = QMessageBox.warning(self, "Confirm Batch Write", f"Write {len(self.modified_props)} properties? Requires root.", QMessageBox.Yes | QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.tweak_console.append(f"<b>Starting batch write...</b>")
+            commands = [f"resetprop -n {key} \"{val}\"" for key, val in self.modified_props.items()]
+            full_script = " ; ".join(commands)
+            self.run_command(f"adb shell su -c '{full_script}'", callback=lambda code: self.tweak_console.append(f"Batch write status: {code}"))
+            self.modified_props = {}
+            QTimer.singleShot(2000, self.read_all_props)
+
+    def export_props_to_file(self):
+        if self.prop_table.rowCount() == 0:
+            QMessageBox.warning(self, "Export Error", "No properties to export. Click 'Read All Props' first.")
+            return
+        last_dir = self.settings.get_last_dir("last_export_dir")
+        f, _ = QFileDialog.getSaveFileName(self, "Save Properties", last_dir, "Prop Files (*.prop);;Text Files (*.txt)")
+        if f:
+            self.settings.set_last_dir(os.path.dirname(f), "last_export_dir")
+            try:
+                with open(f, "w") as file:
+                    for row in range(self.prop_table.rowCount()):
+                        key = self.prop_table.item(row, 0).text()
+                        val = self.prop_table.item(row, 1).text()
+                        file.write(f"{key}={val}\n")
+                self.tweak_console.append(f"Exported to {f}")
+                QMessageBox.information(self, "Export Success", f"Saved to {os.path.basename(f)}")
+            except Exception as e: QMessageBox.critical(self, "Error", str(e))

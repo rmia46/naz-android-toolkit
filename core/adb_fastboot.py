@@ -46,10 +46,15 @@ def get_adb_info(serial):
         build_proc = subprocess.run(["adb", "-s", serial, "shell", "getprop", "ro.build.display.id"], capture_output=True, text=True)
         info["Build"] = build_proc.stdout.strip()
         
-        # Check Root
-        root_proc = subprocess.run(["adb", "-s", serial, "shell", "id"], capture_output=True, text=True)
+        # Check Root (Specifically via SU to detect Magisk)
+        root_proc = subprocess.run(["adb", "-s", serial, "shell", "su", "-c", "id"], capture_output=True, text=True, timeout=3)
         if "uid=0(root)" in root_proc.stdout:
-            info["Root"] = "Yes"
+            info["Root"] = "Yes (Magisk)"
+        else:
+            # Fallback check for unsecure adb
+            id_proc = subprocess.run(["adb", "-s", serial, "shell", "id"], capture_output=True, text=True, timeout=2)
+            if "uid=0(root)" in id_proc.stdout:
+                info["Root"] = "Yes (System)"
     except: pass
     return info
 
