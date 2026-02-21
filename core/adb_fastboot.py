@@ -1,5 +1,6 @@
 import subprocess
 import re
+import shutil
 
 def check_tools():
     tools = ["adb", "fastboot"]
@@ -10,6 +11,9 @@ def check_tools():
         except (subprocess.CalledProcessError, FileNotFoundError):
             missing.append(tool)
     return missing
+
+def is_scrcpy_available():
+    return shutil.which("scrcpy") is not None
 
 def get_devices():
     devices = []

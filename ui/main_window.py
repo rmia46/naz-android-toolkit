@@ -4,13 +4,14 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLabel, QFileDialog, QTextEdit, QComboBox, 
                              QGroupBox, QLineEdit, QProgressBar, QTableWidget,
                              QTableWidgetItem, QHeaderView, QMessageBox, QTabWidget,
-                             QFormLayout, QFrame, QGridLayout, QSplitter)
+                             QFormLayout, QFrame, QGridLayout, QSplitter, QInputDialog,
+                             QDialog, QDialogButtonBox, QCheckBox)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QFont, QColor, QPixmap, QTextCursor
 
 from core.command_thread import CommandThread
 from core.adb_fastboot import (get_devices, fetch_partitions_from_device, check_tools, 
-                               get_adb_info, get_fastboot_info, get_adb_metrics)
+                               get_adb_info, get_fastboot_info, get_adb_metrics, is_scrcpy_available)
 from utils.logger import save_session_log, start_boot_monitor
 from utils.settings import SettingsManager
 from utils.paths import get_resource_path
@@ -36,7 +37,7 @@ QTextEdit { background-color: #000000; border: 1px solid #333333; border-radius:
 QLabel { padding: 1px 0px; }
 """
 
-APP_VERSION = "v1.2.0"
+APP_VERSION = "v1.3.0"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -255,14 +256,44 @@ class MainWindow(QMainWindow):
         actions_layout.addWidget(btn_refresh)
         layout.addLayout(actions_layout)
 
-        conn_group = QGroupBox("Wireless ADB Connector")
+        # Mirroring & Desktop Group
+        mirror_group = QGroupBox("Desktop & Screen Mirroring")
+        mirror_layout = QHBoxLayout()
+        btn_mirror = QPushButton("Standard Mirror")
+        btn_mirror.clicked.connect(lambda: self.launch_scrcpy("standard"))
+        
+        btn_dex = QPushButton("DeX Mode (Screen Off)")
+        btn_dex.setStyleSheet("background-color: #0D47A1; font-weight: bold;")
+        btn_dex.clicked.connect(lambda: self.launch_scrcpy("dex"))
+        
+        btn_game = QPushButton("Gaming Mode (60 FPS)")
+        btn_game.clicked.connect(lambda: self.launch_scrcpy("gaming"))
+
+        btn_wake = QPushButton("Wake & Dismiss Lock")
+        btn_wake.clicked.connect(lambda: self.run_command("adb shell input keyevent KEYCODE_WAKE && adb shell wm dismiss-keyguard"))
+        
+        self.chk_audio = QCheckBox("Forward Audio (Android 11+)")
+        self.chk_audio.setStyleSheet("color: #AAAAAA; font-size: 11px;")
+        
+        mirror_layout.addWidget(btn_mirror)
+        mirror_layout.addWidget(btn_dex)
+        mirror_layout.addWidget(btn_game)
+        mirror_layout.addWidget(btn_wake)
+        mirror_layout.addWidget(self.chk_audio)
+        mirror_group.setLayout(mirror_layout)
+        layout.addWidget(mirror_group)
+
+        conn_group = QGroupBox("Wireless ADB Connector (Android 11+ Pairing Support)")
         conn_layout = QHBoxLayout()
-        self.ip_input = QLineEdit()
-        self.ip_input.setPlaceholderText("192.168.1.X:5555")
-        btn_connect = QPushButton("Connect Wireless")
-        btn_connect.clicked.connect(lambda: self.run_command(f"adb connect {self.ip_input.text()}"))
-        conn_layout.addWidget(self.ip_input)
-        conn_layout.addWidget(btn_connect)
+        btn_pair_connect = QPushButton("PAIR & CONNECT NEW DEVICE")
+        btn_pair_connect.setStyleSheet("background-color: #2E7D32; font-weight: bold; height: 35px;")
+        btn_pair_connect.clicked.connect(self.wireless_pairing_workflow)
+        
+        btn_quick_connect = QPushButton("Quick Connect (Last IP)")
+        btn_quick_connect.clicked.connect(self.wireless_quick_connect)
+        
+        conn_layout.addWidget(btn_pair_connect, 2)
+        conn_layout.addWidget(btn_quick_connect, 1)
         conn_group.setLayout(conn_layout)
         layout.addWidget(conn_group)
 
@@ -469,14 +500,11 @@ class MainWindow(QMainWindow):
         preset_layout = QHBoxLayout()
         self.preset_combo = QComboBox()
         self.load_presets()
-        
         btn_apply_preset = QPushButton("Apply Preset (Live)")
         btn_apply_preset.clicked.connect(self.apply_identity_preset)
-        
         btn_gen_script = QPushButton("Install Permanent Fix (Magisk)")
         btn_gen_script.setStyleSheet("background-color: #4A148C; font-weight: bold;")
         btn_gen_script.clicked.connect(self.install_magisk_fix)
-        
         preset_layout.addWidget(self.preset_combo, 1)
         preset_layout.addWidget(btn_apply_preset)
         preset_layout.addWidget(btn_gen_script)
@@ -605,7 +633,7 @@ class MainWindow(QMainWindow):
             self.info_labels["Bootloader"].setText("N/A (check in Fastboot)")
             self.cards["Bootloader_card"].setStyleSheet("background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid #F44336;")
             self.info_labels["Root"].setText(info["Root"])
-            color = "#00E676" if info["Root"] == "Yes" else "#E53935"
+            color = "#00E676" if info["Root"] == "Yes (Magisk)" or info["Root"] == "Yes (System)" else "#E53935"
             self.cards["Root_card"].setStyleSheet(f"background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid {color};")
             self.update_live_metrics()
 
@@ -690,16 +718,13 @@ class MainWindow(QMainWindow):
 
         self.set_ui_enabled(False)
         self.log(f"> {cmd}")
-        
         thread = CommandThread(cmd)
         self.active_threads.append(thread)
         thread.output_signal.connect(self.log)
-        
         def on_finished_internal(code):
             if thread in self.active_threads: self.active_threads.remove(thread)
             self.set_ui_enabled(True)
             if callback: callback(code)
-            
         thread.finished_signal.connect(on_finished_internal)
         thread.start()
 
@@ -751,16 +776,13 @@ class MainWindow(QMainWindow):
         serial = self.device_combo.currentData()
         if serial and "fastboot" in cmd: cmd = cmd.replace("fastboot", f"fastboot -s {serial}", 1)
         if serial and "adb" in cmd: cmd = cmd.replace("adb", f"adb -s {serial}", 1)
-        
         self.log(f"> {cmd}")
         thread = CommandThread(cmd)
         self.active_threads.append(thread)
         thread.output_signal.connect(self.log)
-        
         def on_finished_batch(code):
             if thread in self.active_threads: self.active_threads.remove(thread)
             if callback: callback(code)
-            
         thread.finished_signal.connect(on_finished_batch)
         thread.start()
 
@@ -857,6 +879,102 @@ class MainWindow(QMainWindow):
             self.log(f"Error launching shell: {str(e)}")
             QMessageBox.critical(self, "Error", f"Failed to launch interactive shell: {str(e)}")
 
+    def wireless_pairing_workflow(self):
+        diag = QDialog(self)
+        diag.setWindowTitle("Step 1: ADB Wireless Pairing")
+        diag.setMinimumWidth(400)
+        d_layout = QFormLayout(diag)
+        
+        addr_input = QLineEdit()
+        addr_input.setPlaceholderText("e.g. 192.168.1.5:34567")
+        code_input = QLineEdit()
+        code_input.setPlaceholderText("6-digit code")
+        
+        d_layout.addRow("Pairing Address (IP:Port):", addr_input)
+        d_layout.addRow("Pairing Code:", code_input)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(diag.accept)
+        buttons.rejected.connect(diag.reject)
+        d_layout.addRow(buttons)
+        
+        if diag.exec() == QDialog.Accepted:
+            pair_addr = addr_input.text().strip()
+            pair_code = code_input.text().strip()
+            
+            if not pair_addr or not pair_code: return
+            
+            self.tweak_console.append(f"Attempting to pair with {pair_addr}...")
+            
+            def on_pair_done(code):
+                if code == 0:
+                    self.log(f"<b>Successfully paired with {pair_addr}!</b>")
+                    # Step 2: Now prompt for connection address
+                    conn_addr, ok = QInputDialog.getText(self, "Step 2: Connect", 
+                                                       "Enter Connection IP:Port (e.g. 192.168.1.5:5555):")
+                    if ok and conn_addr:
+                        self.settings.set_last_dir(conn_addr, "last_adb_ip")
+                        self.run_command(f"adb connect {conn_addr}")
+                else:
+                    QMessageBox.critical(self, "Pairing Failed", 
+                                       "Pairing failed. Ensure the IP and Code are correct and the phone's pairing screen is still visible.")
+
+            self.run_command(f"adb pair {pair_addr} {pair_code}", callback=on_pair_done)
+
+    def wireless_quick_connect(self):
+        last_ip = self.settings.get_last_dir("last_adb_ip")
+        ip, ok = QInputDialog.getText(self, "Quick Connect", "Enter Device IP:Port:", text=last_ip)
+        if ok and ip:
+            self.settings.set_last_dir(ip, "last_adb_ip")
+            self.run_command(f"adb connect {ip}")
+
+    def launch_scrcpy(self, mode):
+        import shutil
+        scrcpy_path = shutil.which("scrcpy")
+        
+        if not scrcpy_path:
+            QMessageBox.critical(self, "Missing Tool", "Scrcpy executable not found in system PATH.")
+            return
+
+        serial = self.device_combo.currentData()
+        if not serial or "ADB" not in self.device_combo.currentText():
+            QMessageBox.warning(self, "Connection Error", "Mirroring requires an active ADB connection.")
+            return
+
+        # Build command list
+        cmd_args = [scrcpy_path, "-s", serial, "--always-on-top"]
+        
+        if not self.chk_audio.isChecked():
+            cmd_args += ["--no-audio"]
+        
+        if mode == "dex":
+            # PRE-LAUNCH: Wake up the device and dismiss the keyguard if possible
+            # This helps prevent immediate locking when screen turns off
+            wake_cmd = f"adb -s {serial} shell 'input keyevent KEYCODE_WAKE && wm dismiss-keyguard'"
+            import subprocess
+            subprocess.run(wake_cmd, shell=True)
+
+            cmd_args += ["--turn-screen-off", "--stay-awake", "--disable-screensaver"]
+            self.log("Launching DeX Mode (Screen Off)...")
+        elif mode == "gaming":
+            # Removed --mouse-capture as it can be confusing for standard UI navigation
+            cmd_args += ["--max-fps", "60", "--video-bit-rate", "16M"]
+            self.log("Launching Gaming Mode (High Performance)...")
+        else:
+            self.log("Launching Standard Mirroring...")
+
+        self.log("<font color='#FFA000'>Note: If mouse clicks don't work, enable 'USB Debugging (Security Settings)' in your phone's Developer Options.</font>")
+
+        import subprocess
+        try:
+            # Launch scrcpy as a detached process
+            if sys.platform == "win32":
+                subprocess.Popen(cmd_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
+            else:
+                subprocess.Popen(cmd_args, start_new_session=True)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to launch scrcpy: {str(e)}")
+
     def browse_sideload_file(self):
         last_dir = self.settings.get_last_dir("last_sideload_dir")
         f, _ = QFileDialog.getOpenFileName(self, "Select Sideload File", last_dir, "Sideload Files (*.zip *.apk)")
@@ -925,36 +1043,20 @@ class MainWindow(QMainWindow):
         preset_name = self.preset_combo.currentText()
         preset_path = self.preset_combo.currentData()
         if not preset_path or "Select" in preset_name: return
-        
         serial = self.device_combo.currentData()
         if not serial: return
-
         msg = (f"This will install a boot script to spoof your device as {preset_name}.\\n\\n"
                "SAFETY FEATURES INCLUDED:\\n"
-               "- 30 second delay before applying (gives you time to react)\\n"
-               "- Automatic abort if device is in Safe Mode\\n\\n"
-               "Proceed?")
-        
+               "- 30 second delay before applying\\n"
+               "- Automatic abort if in Safe Mode\\n\\nProceed?")
         reply = QMessageBox.warning(self, "Install Permanent Fix", msg, QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.No: return
-
         self.tweak_console.append("<b>Generating Safe Magisk boot script...</b>")
-        
-        # Build the script with safety checks
         script_lines = [
-            "#!/system/bin/sh",
-            "# Naz Android Toolkit - Permanent Identity Fix",
-            "exec > /data/local/tmp/nat_fix.log 2>&1", # Log errors to file
-            "echo 'NAT Fix: Script started'",
-            "sleep 30", # Safety delay
-            "if [ \"$(getprop persist.sys.safemode)\" = \"1\" ] || [ \"$(getprop ro.boot.safemode)\" = \"1\" ]; then",
-            "    echo 'NAT Fix: Safe Mode detected, aborting.'",
-            "    exit 0",
-            "fi",
-            "until [ \"$(getprop sys.boot_completed)\" = \"1\" ]; do sleep 2; done",
-            "echo 'NAT Fix: Applying properties...'"
+            "#!/system/bin/sh", "# Naz Android Toolkit Fix", "exec > /data/local/tmp/nat_fix.log 2>&1",
+            "sleep 30", "if [ \"$(getprop persist.sys.safemode)\" = \"1\" ]; then exit 0; fi",
+            "until [ \"$(getprop sys.boot_completed)\" = \"1\" ]; do sleep 2; done"
         ]
-        
         try:
             with open(preset_path, 'r') as f:
                 for line in f:
@@ -963,48 +1065,19 @@ class MainWindow(QMainWindow):
                     if "=" in line:
                         key, val = line.split("=", 1)
                         script_lines.append(f"resetprop -n {key.strip()} \"{val.strip()}\"")
-            
-            script_lines.append("echo 'NAT Fix: All properties applied successfully.'")
-            script_content = "\n".join(script_lines)
-            
             local_script = os.path.join(os.getcwd(), "nat_fix.sh")
-            with open(local_script, "w") as f:
-                f.write(script_content)
-            
+            with open(local_script, "w") as f: f.write("\n".join(script_lines))
             target_path = "/data/adb/service.d/nat_fix.sh"
-            self.log(f"Pushing safe script to {target_path}...")
-            
             push_cmd = f"adb -s {serial} push \"{local_script}\" /data/local/tmp/nat_fix.sh"
-            # More robust command: 
-            # 1. Ensure directory exists 
-            # 2. Use 'cp' or 'cat'
-            # 3. Fix permissions
-            full_su_cmd = (
-                "mkdir -p /data/adb/service.d && "
-                f"cat /data/local/tmp/nat_fix.sh > {target_path} && "
-                f"chmod 755 {target_path} && "
-                "rm /data/local/tmp/nat_fix.sh"
-            )
+            full_su_cmd = f"mkdir -p /data/adb/service.d && cat /data/local/tmp/nat_fix.sh > {target_path} && chmod 755 {target_path} && rm /data/local/tmp/nat_fix.sh"
             move_cmd = f"adb -s {serial} shell su -c \"{full_su_cmd}\""
-            
             def on_install_done(code):
                 if code == 0:
-                    self.tweak_console.append("<b>Permanent fix installed! REBOOT your device.</b>")
-                    success_msg = ("Success! Script installed to /data/adb/service.d/nat_fix.sh\\n\\n"
-                                   "HOW TO RECOVER IF A BOOTLOOP OCCURS:\\n"
-                                   "1. Boot into TWRP Recovery.\\n"
-                                   "2. Go to Advanced -> File Manager.\\n"
-                                   "3. Delete /data/adb/service.d/nat_fix.sh\\n"
-                                   "4. Reboot to System.")
-                    QMessageBox.information(self, "Success", success_msg)
-                else:
-                    self.tweak_console.append(f"<font color='#F44336'>Failed to install script (Exit Code {code}).</font>")
-                    self.tweak_console.append("Try running 'adb shell su -c id' in the dashboard terminal to verify root.")
-
+                    self.tweak_console.append("<b>Permanent fix installed! REBOOT device.</b>")
+                    QMessageBox.information(self, "Success", "Script installed to /data/adb/service.d/nat_fix.sh\\n\\nPlease REBOOT.")
+                else: self.tweak_console.append(f"Failed (Exit Code {code}). Check root.")
             self.run_batch_command(push_cmd, lambda code: self.run_command(move_cmd, callback=on_install_done))
-            
-        except Exception as e:
-            self.tweak_console.append(f"Error: {str(e)}")
+        except Exception as e: self.tweak_console.append(f"Error: {str(e)}")
 
     def read_all_props(self):
         serial = self.device_combo.currentData()
