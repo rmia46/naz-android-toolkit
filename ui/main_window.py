@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QFont, QColor, QPixmap, QTextCursor
 
+from ui.theme import Theme
+from ui.components import InfoCard, ActionButton, CompactGroupBox, create_h_layout, create_v_layout
 from core.command_thread import CommandThread
 from core.adb_fastboot import (get_devices, fetch_partitions_from_device, check_tools, 
                                get_adb_info, get_fastboot_info, get_adb_metrics, is_scrcpy_available)
@@ -18,34 +20,13 @@ from utils.logger import save_session_log, start_boot_monitor
 from utils.settings import SettingsManager
 from utils.paths import get_resource_path
 
-# Global Professional Stylesheet
-STYLESHEET = """
-QMainWindow { background-color: #121212; color: #E0E0E0; }
-QTabWidget::pane { border: 1px solid #333333; top: -1px; background: #1E1E1E; border-radius: 4px; }
-QTabBar::tab { background: #252525; padding: 10px 20px; border: 1px solid #333333; margin-right: 2px; border-top-left-radius: 4px; border-top-right-radius: 4px; color: #AAAAAA; }
-QTabBar::tab:selected { background: #1E1E1E; border-bottom-color: #1E1E1E; color: #00E676; font-weight: bold; }
-QGroupBox { font-weight: bold; border: 2px solid #333333; border-radius: 6px; margin-top: 20px; padding-top: 15px; color: #00E676; }
-QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 5px 10px; left: 10px; }
-QPushButton { background-color: #333333; border: 1px solid #444444; border-radius: 4px; padding: 6px 15px; min-height: 25px; color: white; }
-QPushButton:hover { background-color: #444444; border: 1px solid #00E676; }
-QPushButton#flash_btn { background-color: #B71C1C; font-size: 14px; font-weight: bold; border: 1px solid #E53935; }
-QPushButton#flash_btn:hover { background-color: #D32F2F; border: 1px solid white; }
-QLineEdit, QComboBox { background-color: #252525; border: 1px solid #444444; border-radius: 3px; padding: 4px; color: #E0E0E0; }
-QTableWidget { background-color: #1E1E1E; border: 1px solid #333333; alternate-background-color: #252525; color: #E0E0E0; gridline-color: #333333; }
-QHeaderView::section { background-color: #252525; padding: 4px; border: 1px solid #333333; color: #AAAAAA; }
-QProgressBar { border: 1px solid #333333; border-radius: 4px; text-align: center; background-color: #252525; height: 15px; }
-QProgressBar::chunk { background-color: #00E676; border-radius: 3px; }
-QTextEdit { background-color: #000000; border: 1px solid #333333; border-radius: 4px; }
-QLabel { padding: 1px 0px; }
-"""
-
 APP_VERSION = "v1.3.0"
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"Naz Android Toolkit {APP_VERSION}")
-        self.setMinimumSize(1200, 900)
+        self.setMinimumSize(1000, 750) 
         self.setAcceptDrops(True)
         self.is_flashing = False
         self.session_log = []
@@ -54,7 +35,7 @@ class MainWindow(QMainWindow):
         self.modified_props = {}
         self.active_threads = []
         
-        self.setStyleSheet(STYLESHEET)
+        self.setStyleSheet(Theme.get_stylesheet())
         self.init_ui()
         self.check_env()
         self.refresh_devices()
@@ -115,21 +96,6 @@ class MainWindow(QMainWindow):
         self.queue_table.setItem(row, 2, status_item)
         self.log(f"Added to queue via drag-drop: {os.path.basename(file_path)}")
 
-    def create_info_card(self, title, accent_color="#00E676"):
-        frame = QFrame()
-        frame.setStyleSheet(f"background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid {accent_color};")
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(15, 10, 15, 10)
-        
-        title_lbl = QLabel(title)
-        title_lbl.setStyleSheet("color: #AAAAAA; font-size: 11px; text-transform: uppercase; font-weight: bold; border: none;")
-        val_lbl = QLabel("N/A")
-        val_lbl.setStyleSheet("color: white; font-size: 16px; font-weight: bold; border: none;")
-        
-        layout.addWidget(title_lbl)
-        layout.addWidget(val_lbl)
-        return frame, val_lbl
-
     def check_env(self):
         missing = check_tools()
         if missing:
@@ -139,28 +105,24 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(15, 15, 15, 15)
-        main_layout.setSpacing(10)
+        main_layout = create_v_layout(margins=(10, 10, 10, 10), spacing=5)
 
         # Header
-        header_container = QGroupBox("Target Selection")
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(10, 10, 10, 10)
+        header_container = CompactGroupBox("Target Selection")
+        header_layout = create_h_layout(margins=(8, 5, 8, 5), spacing=12)
         
         logo_label = QLabel()
-        logo_path = get_resource_path(os.path.join("assets", "logo.png"))
+        logo_path = get_resource_path(os.path.join("assets", "logo.svg"))
         if os.path.exists(logo_path):
-            pixmap = QPixmap(logo_path).scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pixmap = QPixmap(logo_path).scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             logo_label.setPixmap(pixmap)
         header_layout.addWidget(logo_label)
 
-        title_layout = QVBoxLayout()
+        title_layout = create_v_layout(spacing=0)
         title = QLabel("Naz Android Toolkit")
-        title.setFont(QFont("Arial", 26, QFont.Bold))
-        title.setStyleSheet("color: white;")
+        title.setStyleSheet(f"color: white; font-size: 20px; font-weight: bold; border: none;")
         sub_title = QLabel(f"Another Android Fastboot Recovery Suite | {APP_VERSION}")
-        sub_title.setStyleSheet("color: #AAAAAA; font-size: 12px;")
+        sub_title.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 10px; border: none;")
         title_layout.addWidget(title)
         title_layout.addWidget(sub_title)
         header_layout.addLayout(title_layout)
@@ -168,11 +130,9 @@ class MainWindow(QMainWindow):
         header_layout.addStretch()
         
         self.device_combo = QComboBox()
-        self.device_combo.setMinimumWidth(300)
-        self.device_combo.setFixedHeight(35)
+        self.device_combo.setMinimumWidth(250)
         self.device_combo.currentIndexChanged.connect(self.on_device_selected)
-        btn_refresh = QPushButton("Refresh List")
-        btn_refresh.setMinimumHeight(35)
+        btn_refresh = ActionButton("Refresh")
         btn_refresh.clicked.connect(self.refresh_devices)
         header_layout.addWidget(QLabel("Current Device:"))
         header_layout.addWidget(self.device_combo)
@@ -192,16 +152,17 @@ class MainWindow(QMainWindow):
         self.setup_logs_tab()
 
         # Bottom UI
-        bottom_layout = QHBoxLayout()
+        bottom_layout = create_h_layout()
         self.status_label = QLabel("Ready")
-        self.status_label.setStyleSheet("color: #00E676; font-weight: bold;")
+        self.status_label.setStyleSheet(f"color: {Theme.ACCENT}; font-weight: bold;")
         bottom_layout.addWidget(self.status_label)
         bottom_layout.addStretch()
         self.progress = QProgressBar()
-        self.progress.setFixedWidth(400)
+        self.progress.setFixedWidth(300)
         bottom_layout.addWidget(self.progress)
         
         main_layout.addLayout(bottom_layout)
+        central_widget.setLayout(main_layout)
 
     def log(self, text):
         clean_text = text.replace("<b>", "").replace("</b>", "").replace("<font color=", "").replace("</font>", "").replace(">", "")
@@ -209,8 +170,8 @@ class MainWindow(QMainWindow):
 
         color = "#E0E0E0"
         if text.startswith(">"): color = "#FFEB3B"
-        elif "OKAY" in text or "Success" in text or "finished" in text: color = "#00E676"
-        elif "FAILED" in text or "error" in text or "Error" in text: color = "#F44336"
+        elif "OKAY" in text or "Success" in text or "finished" in text: color = Theme.ACCENT
+        elif "FAILED" in text or "error" in text or "Error" in text: color = Theme.DANGER
         
         html_text = f'<font color="{color}">{text}</font>'
         
@@ -224,151 +185,141 @@ class MainWindow(QMainWindow):
 
     def setup_dashboard_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.setContentsMargins(25, 25, 25, 25)
-        layout.setSpacing(20)
+        layout = create_v_layout(margins=(15, 15, 15, 15), spacing=15)
         
         grid = QGridLayout()
-        grid.setSpacing(15)
+        grid.setSpacing(10)
         
         self.cards = {}
-        self.cards["Model_card"], self.info_labels["Model"] = self.create_info_card("Device Model")
-        self.cards["Product_card"], self.info_labels["Build/Product"] = self.create_info_card("Build/Product")
-        self.cards["State_card"], self.info_labels["State"] = self.create_info_card("Connection Mode", "#1565c0")
-        self.cards["Root_card"], self.info_labels["Root"] = self.create_info_card("Root Status", "#FFC107")
-        self.cards["Bootloader_card"], self.info_labels["Bootloader"] = self.create_info_card("Bootloader State", "#F44336")
-        self.cards["Battery_card"], self.lbl_battery = self.create_info_card("Battery Level", "#4CAF50")
-        self.cards["Temp_card"], self.lbl_temp = self.create_info_card("CPU Temp", "#FF9800")
-        self.cards["Storage_card"], self.lbl_storage = self.create_info_card("Storage (Internal)", "#2196F3")
-
-        card_keys = [
-            "Model_card", "Product_card", "State_card",
-            "Root_card", "Bootloader_card", "Battery_card", 
-            "Temp_card", "Storage_card"
+        # Keys are simplified to avoid slashes and match update logic
+        card_configs = [
+            ("Model", "Device Model", Theme.ACCENT),
+            ("Product", "Build / Product", Theme.ACCENT),
+            ("State", "Connection Mode", "#1565C0"),
+            ("Root", "Root Status", "#FFC107"),
+            ("Bootloader", "Bootloader State", "#F44336"),
+            ("Battery", "Battery Level", "#4CAF50"),
+            ("Temp", "CPU Temp", "#FF9800"),
+            ("Storage", "Storage (Internal)", "#2196F3")
         ]
-        for i, key in enumerate(card_keys):
-            grid.addWidget(self.cards[key], i // 3, i % 3)
+
+        for i, (key, title, color) in enumerate(card_configs):
+            card = InfoCard(title, color)
+            self.cards[f"{key}_card"] = card
+            grid.addWidget(card, i // 4, i % 4)
 
         layout.addLayout(grid)
 
-        actions_layout = QHBoxLayout()
-        btn_refresh = QPushButton("Refresh All Info")
-        btn_refresh.setFixedHeight(40)
-        btn_refresh.clicked.connect(self.on_device_selected)
-        actions_layout.addWidget(btn_refresh)
-        layout.addLayout(actions_layout)
+        mid_layout = QHBoxLayout()
+        mid_layout.setSpacing(10)
 
-        # Mirroring & Desktop Group
-        mirror_group = QGroupBox("Desktop & Screen Mirroring")
-        mirror_layout = QHBoxLayout()
-        btn_mirror = QPushButton("Standard Mirror")
+        mirror_group = CompactGroupBox("Screen Mirroring")
+        mirror_inner = create_v_layout(margins=(8, 8, 8, 8))
+        btn_mirror = ActionButton("Standard Mirror")
         btn_mirror.clicked.connect(lambda: self.launch_scrcpy("standard"))
-        
-        btn_dex = QPushButton("DeX Mode (Screen Off)")
-        btn_dex.setStyleSheet("background-color: #0D47A1; font-weight: bold;")
+        btn_dex = ActionButton("DeX Mode (Off)", style="accent")
         btn_dex.clicked.connect(lambda: self.launch_scrcpy("dex"))
+        self.chk_audio = QCheckBox("Forward Audio")
+        self.chk_audio.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 11px;")
         
-        self.chk_audio = QCheckBox("Forward Audio (Android 11+)")
-        self.chk_audio.setStyleSheet("color: #AAAAAA; font-size: 11px;")
-        
-        mirror_layout.addWidget(btn_mirror)
-        mirror_layout.addWidget(btn_dex)
-        mirror_layout.addWidget(self.chk_audio)
-        mirror_group.setLayout(mirror_layout)
-        layout.addWidget(mirror_group)
+        mirror_inner.addLayout(create_h_layout([btn_mirror, btn_dex]))
+        mirror_inner.addWidget(self.chk_audio)
+        mirror_group.setLayout(mirror_inner)
 
-        conn_group = QGroupBox("Wireless ADB Connector (Android 11+ Pairing Support)")
-        conn_layout = QHBoxLayout()
-        btn_pair_connect = QPushButton("PAIR & CONNECT NEW DEVICE")
-        btn_pair_connect.setStyleSheet("background-color: #2E7D32; font-weight: bold; height: 35px;")
-        btn_pair_connect.clicked.connect(self.wireless_pairing_workflow)
+        conn_group = CompactGroupBox("Wireless ADB (Android 11+)")
+        conn_inner = create_v_layout(margins=(8, 8, 8, 8))
+        btn_pair = ActionButton("Pair New Device")
+        btn_pair.clicked.connect(self.wireless_pairing_workflow)
+        btn_qconnect = ActionButton("Quick Connect")
+        btn_qconnect.clicked.connect(self.wireless_quick_connect)
         
-        btn_quick_connect = QPushButton("Quick Connect (Last IP)")
-        btn_quick_connect.clicked.connect(self.wireless_quick_connect)
-        
-        conn_layout.addWidget(btn_pair_connect, 2)
-        conn_layout.addWidget(btn_quick_connect, 1)
-        conn_group.setLayout(conn_layout)
-        layout.addWidget(conn_group)
+        conn_inner.addLayout(create_h_layout([btn_pair, btn_qconnect]))
+        conn_group.setLayout(conn_inner)
 
-        terminal_group = QGroupBox("Manual Command Terminal")
-        terminal_layout = QHBoxLayout()
+        mid_layout.addWidget(mirror_group, 1)
+        mid_layout.addWidget(conn_group, 1)
+        layout.addLayout(mid_layout)
+
+        terminal_group = CompactGroupBox("Manual Command Terminal")
+        terminal_layout = create_h_layout(margins=(8, 8, 8, 8))
         self.terminal_tool_combo = QComboBox()
         self.terminal_tool_combo.addItems(["adb", "fastboot"])
-        self.terminal_tool_combo.setFixedWidth(100)
+        self.terminal_tool_combo.setFixedWidth(90)
         self.terminal_input = QLineEdit()
-        self.terminal_input.setPlaceholderText("Enter command (e.g. shell uptime or devices)")
+        self.terminal_input.setPlaceholderText("Enter command...")
         self.terminal_input.returnPressed.connect(self.run_manual_command)
-        btn_terminal_exec = QPushButton("Execute")
-        btn_terminal_exec.clicked.connect(self.run_manual_command)
+        btn_exec = ActionButton("Execute")
+        btn_exec.clicked.connect(self.run_manual_command)
+        
         terminal_layout.addWidget(self.terminal_tool_combo)
         terminal_layout.addWidget(self.terminal_input, 1)
-        terminal_layout.addWidget(btn_terminal_exec)
+        terminal_layout.addWidget(btn_exec)
         terminal_group.setLayout(terminal_layout)
         layout.addWidget(terminal_group)
         
         layout.addStretch()
+        tab.setLayout(layout)
         self.tabs.addTab(tab, "Dashboard")
 
     def setup_adb_tab(self):
         tab = QWidget()
-        layout = QHBoxLayout(tab)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout = create_h_layout(margins=(10, 10, 10, 10), spacing=10)
         splitter = QSplitter(Qt.Horizontal)
         
         left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout = create_v_layout()
         
-        app_group = QGroupBox("App Management")
-        app_layout = QVBoxLayout()
-        btn_install = QPushButton("Install APK Package")
-        btn_install.setFixedHeight(35)
+        app_group = CompactGroupBox("App Management")
+        app_layout = create_v_layout(margins=(8, 8, 8, 8))
+        btn_install = ActionButton("Install APK Package")
         btn_install.clicked.connect(self.install_apk)
-        uninstall_layout = QHBoxLayout()
+        
+        uninstall_layout = create_h_layout()
         self.pkg_input = QLineEdit()
         self.pkg_input.setPlaceholderText("com.package.name")
-        btn_uninstall = QPushButton("Uninstall")
+        btn_uninstall = ActionButton("Uninstall")
         btn_uninstall.clicked.connect(lambda: self.run_command(f"adb uninstall {self.pkg_input.text()}", safety=True))
         uninstall_layout.addWidget(self.pkg_input)
         uninstall_layout.addWidget(btn_uninstall)
+        
         app_layout.addWidget(btn_install)
         app_layout.addLayout(uninstall_layout)
         app_group.setLayout(app_layout)
         left_layout.addWidget(app_group)
 
-        cmd_group = QGroupBox("Custom ADB Shell")
-        cmd_layout = QVBoxLayout()
+        cmd_group = CompactGroupBox("Custom ADB Shell")
+        cmd_layout = create_v_layout(margins=(8, 8, 8, 8))
         self.adb_cmd_input = QLineEdit()
         self.adb_cmd_input.setPlaceholderText("shell pm list packages")
-        btn_exec = QPushButton("Run Command")
+        btn_exec = ActionButton("Run Command")
         btn_exec.clicked.connect(self.run_custom_adb)
+        
+        btn_shell = ActionButton("Open Interactive Shell", style="accent")
+        btn_shell.clicked.connect(self.open_interactive_shell)
+        
         cmd_layout.addWidget(self.adb_cmd_input)
         cmd_layout.addWidget(btn_exec)
-        
-        btn_shell = QPushButton("Open Interactive ADB Shell")
-        btn_shell.setFixedHeight(35)
-        btn_shell.setStyleSheet("background-color: #1B5E20; font-weight: bold;")
-        btn_shell.clicked.connect(self.open_interactive_shell)
         cmd_layout.addWidget(btn_shell)
         cmd_group.setLayout(cmd_layout)
         left_layout.addWidget(cmd_group)
 
-        # Sideload Group
-        sideload_group = QGroupBox("ADB Sideload (Recovery)")
-        sideload_layout = QVBoxLayout()
-        btn_reboot_sideload = QPushButton("Reboot to Sideload Mode")
+        sideload_group = CompactGroupBox("ADB Sideload (Recovery)")
+        sideload_layout = create_v_layout(margins=(8, 8, 8, 8))
+        btn_reboot_sideload = ActionButton("Reboot to Sideload")
         btn_reboot_sideload.clicked.connect(lambda: self.run_command("adb reboot sideload"))
-        sideload_input_layout = QHBoxLayout()
+        
+        sideload_input_layout = create_h_layout()
         self.sideload_path_edit = QLineEdit()
-        self.sideload_path_edit.setPlaceholderText("Select .zip or .apk to sideload")
-        btn_browse_sideload = QPushButton("Browse...")
+        self.sideload_path_edit.setPlaceholderText("Select .zip or .apk")
+        btn_browse_sideload = ActionButton("...")
+        btn_browse_sideload.setFixedWidth(40)
         btn_browse_sideload.clicked.connect(self.browse_sideload_file)
         sideload_input_layout.addWidget(self.sideload_path_edit)
         sideload_input_layout.addWidget(btn_browse_sideload)
-        btn_sideload_exec = QPushButton("START SIDELOAD")
-        btn_sideload_exec.setStyleSheet("background-color: #6A1B9A; font-weight: bold; height: 35px;")
+        
+        btn_sideload_exec = ActionButton("START SIDELOAD", style="danger")
         btn_sideload_exec.clicked.connect(self.run_sideload)
+        
         sideload_layout.addWidget(btn_reboot_sideload)
         sideload_layout.addLayout(sideload_input_layout)
         sideload_layout.addWidget(btn_sideload_exec)
@@ -376,12 +327,13 @@ class MainWindow(QMainWindow):
         left_layout.addWidget(sideload_group)
         
         left_layout.addStretch()
+        left_panel.setLayout(left_layout)
         
-        right_panel = QGroupBox("ADB Console Output")
-        right_layout = QVBoxLayout()
+        right_panel = CompactGroupBox("Console Output")
+        right_layout = create_v_layout(margins=(5, 5, 5, 5))
         self.adb_console = QTextEdit()
         self.adb_console.setReadOnly(True)
-        self.adb_console.setStyleSheet("background-color: #0A0A0A; color: #00E676; font-family: 'Courier New';")
+        self.adb_console.setStyleSheet(f"background-color: #0A0A0A; color: {Theme.ACCENT}; font-family: 'Consolas', 'Courier New'; font-size: 11px;")
         right_layout.addWidget(self.adb_console)
         right_panel.setLayout(right_layout)
         
@@ -390,71 +342,78 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 1)
         layout.addWidget(splitter)
+        tab.setLayout(layout)
         self.tabs.addTab(tab, "ADB Tools")
 
     def setup_fastboot_tab(self):
         tab = QWidget()
-        layout = QHBoxLayout(tab)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout = create_h_layout(margins=(10, 10, 10, 10), spacing=10)
         splitter = QSplitter(Qt.Horizontal)
         
         left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout = create_v_layout()
         
-        reboot_group = QGroupBox("Fastboot Reboot Control")
+        reboot_group = CompactGroupBox("Reboot Control")
         reboot_layout = QGridLayout()
+        reboot_layout.setSpacing(5)
         modes = ["Bootloader", "Fastboot", "Recovery", "System"]
         for i, mode in enumerate(modes):
-            btn = QPushButton(mode)
+            btn = ActionButton(mode)
             btn.clicked.connect(lambda checked, m=mode: self.reboot_device(m))
             reboot_layout.addWidget(btn, i//2, i%2)
         reboot_group.setLayout(reboot_layout)
         left_layout.addWidget(reboot_group)
 
-        queue_group = QGroupBox("Partition Flash Queue")
-        queue_layout = QVBoxLayout()
-        input_layout = QHBoxLayout()
+        queue_group = CompactGroupBox("Flash Queue")
+        queue_layout = create_v_layout(margins=(8, 8, 8, 8))
+        
+        input_layout = create_h_layout()
         self.partition_combo = QComboBox()
         self.partition_combo.setEditable(True)
-        btn_fetch = QPushButton("Fetch")
+        btn_fetch = ActionButton("Fetch")
+        btn_fetch.setFixedWidth(50)
         btn_fetch.clicked.connect(self.fetch_partitions)
-        btn_browse = QPushButton("Add Images")
+        btn_browse = ActionButton("Add")
+        btn_browse.setFixedWidth(50)
         btn_browse.clicked.connect(lambda: self.browse_file())
+        
         input_layout.addWidget(self.partition_combo, 1)
         input_layout.addWidget(btn_fetch)
         input_layout.addWidget(btn_browse)
         queue_layout.addLayout(input_layout)
 
         self.queue_table = QTableWidget(0, 3)
-        self.queue_table.setHorizontalHeaderLabels(["Partition", "Image", "Status"])
+        self.queue_table.setHorizontalHeaderLabels(["Part", "Image", "Status"])
         self.queue_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.queue_table.model().rowsInserted.connect(self.update_queue_validation)
         self.queue_table.model().rowsRemoved.connect(self.update_queue_validation)
         queue_layout.addWidget(self.queue_table)
 
-        self.btn_flash = QPushButton("START BATCH FLASH")
-        self.btn_flash.setObjectName("flash_btn")
-        self.btn_flash.setFixedHeight(40)
+        btn_row = create_h_layout()
+        self.btn_flash = ActionButton("START BATCH FLASH", style="danger")
         self.btn_flash.setEnabled(False)
         self.btn_flash.clicked.connect(self.process_queue)
-        btn_clear = QPushButton("Clear All")
+        btn_clear = ActionButton("Clear")
         btn_clear.clicked.connect(lambda: self.queue_table.setRowCount(0))
-        queue_layout.addWidget(self.btn_flash)
-        queue_layout.addWidget(btn_clear)
+        btn_row.addWidget(self.btn_flash, 2)
+        btn_row.addWidget(btn_clear, 1)
+        queue_layout.addLayout(btn_row)
         queue_group.setLayout(queue_layout)
         left_layout.addWidget(queue_group, 1)
 
-        fmt_group = QGroupBox("Generic Format/Erase")
+        fmt_group = CompactGroupBox("Erase / Format")
         fmt_layout = QGridLayout()
+        fmt_layout.setSpacing(5)
         self.fmt_partition_combo = QComboBox()
         self.fmt_partition_combo.setEditable(True)
         self.fs_combo = QComboBox()
         self.fs_combo.addItems(["f2fs", "ext4", "fat"])
-        btn_format = QPushButton("Format")
+        
+        btn_format = ActionButton("Format")
         btn_format.clicked.connect(self.format_partition)
-        btn_erase = QPushButton("Erase")
+        btn_erase = ActionButton("Erase")
         btn_erase.clicked.connect(lambda: self.run_command(f"fastboot erase {self.fmt_partition_combo.currentText()}", safety=True))
+        
         fmt_layout.addWidget(QLabel("Partition:"), 0, 0)
         fmt_layout.addWidget(self.fmt_partition_combo, 0, 1)
         fmt_layout.addWidget(QLabel("FS:"), 1, 0)
@@ -464,11 +423,14 @@ class MainWindow(QMainWindow):
         fmt_group.setLayout(fmt_layout)
         left_layout.addWidget(fmt_group)
         
-        right_panel = QGroupBox("Fastboot Transaction Log")
-        right_layout = QVBoxLayout()
+        left_layout.addStretch()
+        left_panel.setLayout(left_layout)
+        
+        right_panel = CompactGroupBox("Fastboot Log")
+        right_layout = create_v_layout(margins=(5, 5, 5, 5))
         self.fb_console = QTextEdit()
         self.fb_console.setReadOnly(True)
-        self.fb_console.setStyleSheet("background-color: #0A0A0A; color: #00E676; font-family: 'Courier New'; font-size: 11px;")
+        self.fb_console.setStyleSheet(f"background-color: #0A0A0A; color: {Theme.ACCENT}; font-family: 'Consolas', 'Courier New'; font-size: 11px;")
         right_layout.addWidget(self.fb_console)
         right_panel.setLayout(right_layout)
         
@@ -477,59 +439,56 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 1)
         layout.addWidget(splitter)
-        self.tabs.addTab(tab, "Fastboot Tools")
+        tab.setLayout(layout)
+        self.tabs.addTab(tab, "Fastboot")
 
     def setup_tweaks_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout = create_h_layout(margins=(10, 10, 10, 10), spacing=10)
         splitter = QSplitter(Qt.Horizontal)
         
         left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout = create_v_layout()
         
-        spoof_group = QGroupBox("Device Identity Spoofing (Play Integrity Fix)")
-        spoof_layout = QVBoxLayout()
-        preset_layout = QHBoxLayout()
+        spoof_group = CompactGroupBox("Device Identity Spoofing (Beta / Experimental)")
+        spoof_layout = create_v_layout(margins=(8, 8, 8, 8))
+        preset_layout = create_h_layout()
         self.preset_combo = QComboBox()
         self.load_presets()
-        btn_apply_preset = QPushButton("Apply Preset (Live)")
+        btn_apply_preset = ActionButton("Apply Live")
         btn_apply_preset.clicked.connect(self.apply_identity_preset)
-        btn_gen_script = QPushButton("Install Permanent Fix (Magisk)")
-        btn_gen_script.setStyleSheet("background-color: #4A148C; font-weight: bold;")
+        btn_gen_script = ActionButton("Install Fix", style="accent")
         btn_gen_script.clicked.connect(self.install_magisk_fix)
         preset_layout.addWidget(self.preset_combo, 1)
         preset_layout.addWidget(btn_apply_preset)
         preset_layout.addWidget(btn_gen_script)
         spoof_layout.addLayout(preset_layout)
-        spoof_layout.addWidget(QLabel("<font color='#FFA000'>Note: Requires Magisk/Root. Changes use 'resetprop'.</font>"))
+        spoof_layout.addWidget(QLabel(f"<font color='{Theme.DANGER}'><b>Experimental:</b> Some features may not work as expected.</font>"))
         spoof_group.setLayout(spoof_layout)
         left_layout.addWidget(spoof_group)
 
-        prop_group = QGroupBox("Custom Build Property Editor")
-        prop_layout = QVBoxLayout()
-        search_layout = QHBoxLayout()
+        prop_group = CompactGroupBox("Build Property Editor (Experimental)")
+        prop_layout = create_v_layout(margins=(8, 8, 8, 8))
+        search_layout = create_h_layout()
         self.prop_search = QLineEdit()
-        self.prop_search.setPlaceholderText("Search for a prop (e.g. ro.build...)")
-        btn_read_all = QPushButton("Read All Props")
+        self.prop_search.setPlaceholderText("Search property...")
+        btn_read_all = ActionButton("Read All")
         btn_read_all.clicked.connect(self.read_all_props)
-        btn_export_props = QPushButton("Save to File")
+        btn_export_props = ActionButton("Export")
         btn_export_props.clicked.connect(self.export_props_to_file)
         search_layout.addWidget(self.prop_search)
         search_layout.addWidget(btn_read_all)
         search_layout.addWidget(btn_export_props)
         
         self.prop_table = QTableWidget(0, 2)
-        self.prop_table.setHorizontalHeaderLabels(["Property Key", "Value"])
+        self.prop_table.setHorizontalHeaderLabels(["Key", "Value"])
         self.prop_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.prop_table.itemChanged.connect(self.track_prop_change)
         
-        batch_btn_layout = QHBoxLayout()
-        btn_apply_all = QPushButton("APPLY ALL CHANGES")
-        btn_apply_all.setStyleSheet("background-color: #1B5E20; font-weight: bold; height: 35px;")
+        batch_btn_layout = create_h_layout()
+        btn_apply_all = ActionButton("APPLY ALL CHANGES", style="accent")
         btn_apply_all.clicked.connect(self.apply_all_props)
-        btn_clear_pending = QPushButton("Clear Pending")
+        btn_clear_pending = ActionButton("Clear")
         btn_clear_pending.clicked.connect(self.clear_pending_props)
         batch_btn_layout.addWidget(btn_apply_all, 2)
         batch_btn_layout.addWidget(btn_clear_pending, 1)
@@ -540,11 +499,13 @@ class MainWindow(QMainWindow):
         prop_group.setLayout(prop_layout)
         left_layout.addWidget(prop_group, 1)
         
-        right_panel = QGroupBox("System Tweak Logs")
-        right_layout = QVBoxLayout()
+        left_panel.setLayout(left_layout)
+        
+        right_panel = CompactGroupBox("Tweak Log")
+        right_layout = create_v_layout(margins=(5, 5, 5, 5))
         self.tweak_console = QTextEdit()
         self.tweak_console.setReadOnly(True)
-        self.tweak_console.setStyleSheet("background-color: #0A0A0A; color: #00E676; font-family: 'Courier New';")
+        self.tweak_console.setStyleSheet(f"background-color: #0A0A0A; color: {Theme.ACCENT}; font-family: 'Consolas'; font-size: 11px;")
         right_layout.addWidget(self.tweak_console)
         right_panel.setLayout(right_layout)
         
@@ -553,27 +514,31 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 1)
         layout.addWidget(splitter)
-        self.tabs.addTab(tab, "System Tweaks")
+        tab.setLayout(layout)
+        self.tabs.addTab(tab, "Tweaks (Beta)")
 
     def setup_logs_tab(self):
         tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout = create_v_layout(margins=(10, 10, 10, 10))
         self.console = QTextEdit()
         self.console.setReadOnly(True)
-        self.console.setStyleSheet("background-color: black; color: #00ff00; font-family: 'Courier New'; font-size: 12px;")
+        self.console.setStyleSheet(f"background-color: black; color: {Theme.ACCENT}; font-family: 'Consolas', monospace; font-size: 11px;")
         layout.addWidget(self.console)
-        btn_layout = QHBoxLayout()
-        btn_clear = QPushButton("Clear Console")
+        
+        btn_layout = create_h_layout()
+        btn_clear = ActionButton("Clear Console")
         btn_clear.clicked.connect(self.console.clear)
-        btn_save = QPushButton("Save Session Logs")
+        btn_save = ActionButton("Save Logs")
         btn_save.clicked.connect(self.save_logs)
-        btn_boot = QPushButton("Start Boot Monitor")
+        btn_boot = ActionButton("Start Boot Monitor", style="accent")
         btn_boot.clicked.connect(self.boot_monitor)
+        
+        btn_layout.addStretch()
         btn_layout.addWidget(btn_clear)
         btn_layout.addWidget(btn_save)
         btn_layout.addWidget(btn_boot)
         layout.addLayout(btn_layout)
+        tab.setLayout(layout)
         self.tabs.addTab(tab, "Console Logs")
 
     def refresh_devices(self):
@@ -583,10 +548,10 @@ class MainWindow(QMainWindow):
             self.device_combo.addItem(f"{dev['type']}: {dev['serial']}", dev['serial'])
         if not devices:
             self.status_label.setText("No devices connected.")
-            self.status_label.setStyleSheet("color: #E53935; font-weight: bold;")
+            self.status_label.setStyleSheet(f"color: {Theme.DANGER}; font-weight: bold;")
         else:
             self.status_label.setText(f"Connected: {len(devices)} device(s)")
-            self.status_label.setStyleSheet("color: #00E676; font-weight: bold;")
+            self.status_label.setStyleSheet(f"color: {Theme.ACCENT}; font-weight: bold;")
 
     def on_device_selected(self):
         serial = self.device_combo.currentData()
@@ -594,50 +559,45 @@ class MainWindow(QMainWindow):
         text = self.device_combo.currentText()
         is_fastboot = "FASTBOOT" in text
         is_sideload = "SIDELOAD" in text
-        for lbl in self.info_labels.values(): lbl.setText("Fetching...")
-        self.lbl_battery.setText("N/A")
-        self.lbl_temp.setText("N/A")
-        self.lbl_storage.setText("N/A")
-        mode_bg = "#1A237E" 
-        if is_fastboot: mode_bg = "#311B92"
-        elif is_sideload: mode_bg = "#4A148C"
-        self.cards["State_card"].setStyleSheet(f"background-color: {mode_bg}; border: 1px solid #00E676; border-radius: 8px; border-left: 4px solid #1565c0;")
+        
+        for card in self.cards.values(): card.set_value("...")
+        
         if is_fastboot:
             info = get_fastboot_info(serial)
-            self.info_labels["Model"].setText("N/A")
-            self.info_labels["Build/Product"].setText(info["Product"])
-            self.info_labels["State"].setText("FASTBOOT")
+            self.cards["Model_card"].set_value("N/A")
+            self.cards["Product_card"].set_value(info["Product"])
+            self.cards["State_card"].set_value("FASTBOOT", color="#311B92")
+            
             bl_state = info["Unlocked"]
-            self.info_labels["Bootloader"].setText("Unlocked" if bl_state == "yes" else "Locked" if bl_state == "no" else "Unknown")
-            color = "#00E676" if bl_state == "yes" else "#E53935" if bl_state == "no" else "#AAAAAA"
-            self.cards["Bootloader_card"].setStyleSheet(f"background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid {color};")
-            self.info_labels["Root"].setText("N/A")
+            bl_color = Theme.ACCENT if bl_state == "yes" else Theme.DANGER if bl_state == "no" else Theme.TEXT_SECONDARY
+            self.cards["Bootloader_card"].set_value("Unlocked" if bl_state == "yes" else "Locked" if bl_state == "no" else "Unknown", color=bl_color)
+            
+            self.cards["Root_card"].set_value("N/A")
+            for m_card in ["Battery_card", "Temp_card", "Storage_card"]:
+                self.cards[m_card].set_value("N/A")
             self.fetch_partitions()
         elif is_sideload:
-            self.info_labels["Model"].setText("N/A")
-            self.info_labels["Build/Product"].setText("N/A")
-            self.info_labels["State"].setText("SIDELOAD")
-            self.info_labels["Bootloader"].setText("N/A")
-            self.info_labels["Root"].setText("N/A")
+            for key in ["Model", "Product", "Bootloader", "Root", "Battery", "Temp", "Storage"]:
+                self.cards[f"{key}_card"].set_value("N/A")
+            self.cards["State_card"].set_value("SIDELOAD", color="#4A148C")
         else:
             info = get_adb_info(serial)
-            self.info_labels["Model"].setText(info["Model"])
-            self.info_labels["Build/Product"].setText(info["Build"])
-            self.info_labels["State"].setText("ADB")
-            self.info_labels["Bootloader"].setText("N/A (check in Fastboot)")
-            self.cards["Bootloader_card"].setStyleSheet("background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid #F44336;")
-            self.info_labels["Root"].setText(info["Root"])
-            color = "#00E676" if info["Root"] == "Yes (Magisk)" or info["Root"] == "Yes (System)" else "#E53935"
-            self.cards["Root_card"].setStyleSheet(f"background-color: #252525; border: 1px solid #333333; border-radius: 8px; border-left: 4px solid {color};")
+            self.cards["Model_card"].set_value(info["Model"])
+            self.cards["Product_card"].set_value(info["Build"])
+            self.cards["State_card"].set_value("ADB", color="#1565C0")
+            self.cards["Bootloader_card"].set_value("Check in Fastboot")
+            
+            root_color = Theme.ACCENT if "Yes" in info["Root"] else Theme.DANGER
+            self.cards["Root_card"].set_value(info["Root"], color=root_color)
             self.update_live_metrics()
 
     def update_live_metrics(self):
         serial = self.device_combo.currentData()
         if not serial or "ADB" not in self.device_combo.currentText(): return
         metrics = get_adb_metrics(serial)
-        self.lbl_battery.setText(metrics["Battery"])
-        self.lbl_temp.setText(metrics["Temp"])
-        self.lbl_storage.setText(metrics["Storage"])
+        self.cards["Battery_card"].set_value(metrics["Battery"])
+        self.cards["Temp_card"].set_value(metrics["Temp"])
+        self.cards["Storage_card"].set_value(metrics["Storage"])
 
     def reboot_device(self, mode):
         serial = self.device_combo.currentData()
@@ -783,7 +743,7 @@ class MainWindow(QMainWindow):
     def on_finished(self, code):
         success = code == 0
         status = "Success" if success else "Failed"
-        color = "#00E676" if success else "#F44336"
+        color = Theme.ACCENT if success else Theme.DANGER
         status_item = QTableWidgetItem(status)
         status_item.setForeground(QColor(color))
         font = status_item.font()
