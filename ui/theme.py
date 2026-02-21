@@ -4,7 +4,8 @@ class Theme:
     # "Deep Oceanic" Modern Palette
     BG_DARK = "#0f172a"    # Deep Slate
     BG_CARD = "#1e293b"    # Slate Blue
-    BG_INPUT = "#334155"   # Muted Slate
+    BG_INPUT = "#1c1c26"   # Muted Slate
+    BG_BUTTON = "#334155"  # Lighter slate for buttons
     BORDER = "#334155"     
     ACCENT = "#38bdf8"     # Sky Blue
     ACCENT_HOVER = "#7dd3fc"
@@ -108,7 +109,7 @@ class Theme:
         }}
         
         QPushButton {{ 
-            background-color: {cls.BG_INPUT}; 
+            background-color: {cls.BG_BUTTON}; 
             border: 1px solid {cls.BORDER}; 
             border-radius: 6px; 
             padding: 5px 16px; 
@@ -117,9 +118,18 @@ class Theme:
             font-weight: 600;
         }}
         
+        QPushButton#default_btn {{
+            background-color: {cls.BG_BUTTON};
+        }}
+
         QPushButton:hover {{ 
             background-color: {cls.BORDER}; 
-            border: 1px solid {cls.ACCENT}; 
+            border: 1px solid {cls.ACCENT};
+            color: white;
+        }}
+
+        QPushButton:pressed {{
+            background-color: {cls.BG_DARK};
         }}
         
         QPushButton#accent_btn {{ 
@@ -131,6 +141,7 @@ class Theme:
         QPushButton#accent_btn:hover {{ 
             background-color: white; 
             border: 1px solid white;
+            color: {cls.BG_DARK};
         }}
         
         QPushButton#danger_btn {{ 

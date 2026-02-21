@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QFormLayout, QFrame, QGridLayout, QSplitter, QInputDialog,
                              QDialog, QDialogButtonBox, QCheckBox, QStackedWidget, QTabBar)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
-from PySide6.QtGui import QFont, QColor, QPixmap, QTextCursor
+from PySide6.QtGui import QFont, QColor, QPixmap, QTextCursor, QIcon
 
 from ui.theme import Theme
 from ui.components import InfoCard, ActionButton, CompactGroupBox, create_h_layout, create_v_layout
@@ -20,7 +20,7 @@ from utils.logger import save_session_log, start_boot_monitor
 from utils.settings import SettingsManager
 from utils.paths import get_resource_path
 
-APP_VERSION = "v1.4.0"
+APP_VERSION = "v1.4.1"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -28,6 +28,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"Naz Android Toolkit {APP_VERSION}")
         self.setMinimumSize(1000, 750) 
         self.setAcceptDrops(True)
+        
+        # Set Application Icon
+        icon_path = get_resource_path(os.path.join("assets", "logo.svg"))
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+        
         self.is_flashing = False
         self.session_log = []
         self.settings = SettingsManager()

@@ -1,5 +1,7 @@
 # Naz Android Toolkit
 
+![Naz Android Toolkit Banner](https://i.ibb.co.com/99t3mmXF/nat-banner.png)
+
 Naz Android Toolkit is a comprehensive, asynchronous GUI application for ADB and Fastboot built with PySide6. It is designed for advanced device management, flashing, and system tweaking.
 
 ## 🚀 Key Features
@@ -16,8 +18,8 @@ Naz Android Toolkit is a comprehensive, asynchronous GUI application for ADB and
 *   **Wipe/Format Tools:** Quick access to format partitions (f2fs, ext4, fat) or erase them.
 *   **Reboot Control:** Dedicated controls for rebooting to System, Recovery, Bootloader, or Fastbootd.
 
-### 3. System Tweaks & Identity Spoofing (Root Required)
-*   **Play Integrity Fix:** Includes presets to spoof device identity using `resetprop`.
+### 3. System Tweaks & Identity Spoofing (Beta / Experimental)
+*   **Device Identity Spoofing:** Includes presets to spoof device identity using `resetprop`. **Note:** This feature is currently in **Beta** and may not work as expected on all devices.
 *   **Permanent Fix:** Can install a persistent Magisk boot script to `/data/adb/service.d/` with safety delays and safe-mode checks.
 *   **Property Editor:** A live searchable editor for all `getprop` properties, allowing for batch modification and export.
 
@@ -64,7 +66,11 @@ Ensure you have the following installed and in your system PATH:
 The toolkit can be bundled into a standalone executable using PyInstaller.
 
 ```bash
-pyinstaller --noconsole --onefile --add-data "assets:assets" --add-data "presets:presets" main.py
+# General command (Linux/macOS)
+pyinstaller --noconsole --onefile --icon="assets/logo.svg" --add-data "assets:assets" --add-data "presets:presets" main.py
+
+# Windows (Requires .ico file)
+# pyinstaller --noconsole --onefile --icon="assets/logo.ico" --add-data "assets;assets" --add-data "presets;presets" main.py
 ```
 
 ## ⚖️ License
