@@ -1,6 +1,6 @@
 # Naz Android Toolkit
-
-![Naz Android Toolkit Banner](https://i.ibb.co.com/99t3mmXF/nat-banner.png)
+ 
+![Naz Android Toolkit Banner](assets/banner.png)
 
 Naz Android Toolkit is a comprehensive, asynchronous GUI application for ADB and Fastboot built with PySide6. It is designed for advanced device management, flashing, and system tweaking.
 
