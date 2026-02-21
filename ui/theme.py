@@ -1,68 +1,199 @@
 from PySide6.QtGui import QColor
 
 class Theme:
-    # Colors
-    BG_DARK = "#121212"
-    BG_CARD = "#1E1E1E"
-    BG_INPUT = "#252525"
-    BORDER = "#333333"
-    ACCENT = "#00E676"
-    ACCENT_HOVER = "#00C853"
-    DANGER = "#B71C1C"
-    DANGER_HOVER = "#D32F2F"
-    TEXT_PRIMARY = "#E0E0E0"
-    TEXT_SECONDARY = "#AAAAAA"
+    # "Deep Oceanic" Modern Palette
+    BG_DARK = "#0f172a"    # Deep Slate
+    BG_CARD = "#1e293b"    # Slate Blue
+    BG_INPUT = "#334155"   # Muted Slate
+    BORDER = "#334155"     
+    ACCENT = "#38bdf8"     # Sky Blue
+    ACCENT_HOVER = "#7dd3fc"
+    SECONDARY = "#818cf8"  # Indigo
+    DANGER = "#f43f5e"     # Rose Red
+    DANGER_HOVER = "#fb7185"
+    SUCCESS = "#10b981"    # Emerald
+    TEXT_PRIMARY = "#f1f5f9" 
+    TEXT_SECONDARY = "#94a3b8"
     
     # Fonts
-    FONT_FAMILY = "Segoe UI, Arial, sans-serif"
+    FONT_FAMILY = "Inter, Segoe UI, system-ui, sans-serif"
     FONT_SIZE_BASE = "12px"
     FONT_SIZE_SMALL = "10px"
-    FONT_SIZE_LARGE = "14px"
-    FONT_SIZE_TITLE = "22px"
+    FONT_SIZE_TITLE = "20px"
 
     # Layout
     SPACING = 8
     MARGIN = 10
-    RADIUS = "4px"
+    RADIUS = "8px"
 
     @classmethod
     def get_stylesheet(cls):
         return f"""
-        QMainWindow {{ background-color: {cls.BG_DARK}; color: {cls.TEXT_PRIMARY}; font-family: {cls.FONT_FAMILY}; font-size: {cls.FONT_SIZE_BASE}; }}
+        QMainWindow {{ 
+            background-color: {cls.BG_DARK}; 
+            color: {cls.TEXT_PRIMARY}; 
+            font-family: {cls.FONT_FAMILY}; 
+            font-size: {cls.FONT_SIZE_BASE}; 
+        }}
         
-        QTabWidget::pane {{ border: 1px solid {cls.BORDER}; top: -1px; background: {cls.BG_CARD}; border-radius: {cls.RADIUS}; }}
-        QTabBar::tab {{ background: {cls.BG_INPUT}; padding: 6px 15px; border: 1px solid {cls.BORDER}; margin-right: 2px; border-top-left-radius: {cls.RADIUS}; border-top-right-radius: {cls.RADIUS}; color: {cls.TEXT_SECONDARY}; }}
-        QTabBar::tab:selected {{ background: {cls.BG_CARD}; border-bottom-color: {cls.BG_CARD}; color: {cls.ACCENT}; font-weight: bold; }}
+        QTabWidget {{ 
+            margin: 0px;
+            padding: 0px;
+            border: none;
+        }}
+
+        QTabWidget::pane {{ 
+            border: 1px solid {cls.BORDER}; 
+            border-top: none;
+            background: {cls.BG_CARD}; 
+            border-bottom-left-radius: {cls.RADIUS}; 
+            border-bottom-right-radius: {cls.RADIUS}; 
+        }}
         
-        QGroupBox {{ font-weight: bold; border: 1px solid {cls.BORDER}; border-radius: 6px; margin-top: 15px; padding-top: 10px; color: {cls.ACCENT}; }}
-        QGroupBox::title {{ subcontrol-origin: margin; subcontrol-position: top left; padding: 0 5px; left: 10px; }}
+        QTabBar {{
+            background-color: {cls.BG_DARK};
+            qproperty-drawBase: 0;
+            margin: 0px;
+        }}
+
+        QTabBar::tab {{ 
+            background: transparent; 
+            padding: 12px 30px; 
+            margin-right: 0px; 
+            color: {cls.TEXT_SECONDARY}; 
+            font-weight: 700;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            border-bottom: 2px solid transparent;
+        }}
         
-        QPushButton {{ background-color: {cls.BG_INPUT}; border: 1px solid #444444; border-radius: {cls.RADIUS}; padding: 4px 12px; color: white; min-height: 22px; }}
-        QPushButton:hover {{ background-color: #383838; border: 1px solid {cls.ACCENT}; }}
-        QPushButton:pressed {{ background-color: #444444; }}
-        QPushButton:disabled {{ color: #666666; background-color: #1A1A1A; border: 1px solid #222222; }}
+        QTabBar::tab:selected {{ 
+            color: {cls.ACCENT}; 
+            border-bottom: 3px solid {cls.ACCENT};
+            background: {cls.BG_CARD};
+        }}
         
-        QPushButton#accent_btn {{ background-color: {cls.ACCENT}; color: #000000; font-weight: bold; border: none; }}
-        QPushButton#accent_btn:hover {{ background-color: {cls.ACCENT_HOVER}; }}
+        QTabBar::tab:hover:!selected {{
+            color: white;
+            background: {cls.BG_INPUT};
+        }}
         
-        QPushButton#danger_btn {{ background-color: {cls.DANGER}; font-weight: bold; border: 1px solid {cls.DANGER_HOVER}; }}
-        QPushButton#danger_btn:hover {{ background-color: {cls.DANGER_HOVER}; border: 1px solid white; }}
+        QGroupBox {{ 
+            font-weight: bold; 
+            border: 1px solid {cls.BORDER}; 
+            border-radius: {cls.RADIUS}; 
+            margin-top: 8px; 
+            padding-top: 10px; 
+            background-color: {cls.BG_CARD};
+            color: {cls.TEXT_PRIMARY};
+        }}
         
-        QLineEdit, QComboBox, QSpinBox {{ background-color: {cls.BG_INPUT}; border: 1px solid {cls.BORDER}; border-radius: 3px; padding: 3px; color: {cls.TEXT_PRIMARY}; selection-background-color: {cls.ACCENT}; }}
-        QLineEdit:focus, QComboBox:focus {{ border: 1px solid {cls.ACCENT}; }}
+        QGroupBox::title {{ 
+            subcontrol-origin: margin; 
+            subcontrol-position: top left; 
+            padding: 0 10px; 
+            left: 12px; 
+            color: {cls.ACCENT};
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 1.2px;
+            font-weight: 800;
+        }}
         
-        QTableWidget {{ background-color: {cls.BG_CARD}; border: 1px solid {cls.BORDER}; alternate-background-color: {cls.BG_INPUT}; color: {cls.TEXT_PRIMARY}; gridline-color: {cls.BORDER}; outline: none; }}
-        QHeaderView::section {{ background-color: {cls.BG_INPUT}; padding: 4px; border: 1px solid {cls.BORDER}; color: {cls.TEXT_SECONDARY}; font-weight: bold; }}
+        QPushButton {{ 
+            background-color: {cls.BG_INPUT}; 
+            border: 1px solid {cls.BORDER}; 
+            border-radius: 6px; 
+            padding: 6px 16px; 
+            color: {cls.TEXT_PRIMARY}; 
+            min-height: 26px; 
+            font-weight: 600;
+        }}
         
-        QProgressBar {{ border: 1px solid {cls.BORDER}; border-radius: {cls.RADIUS}; text-align: center; background-color: {cls.BG_INPUT}; height: 12px; font-size: {cls.FONT_SIZE_SMALL}; }}
-        QProgressBar::chunk {{ background-color: {cls.ACCENT}; border-radius: 2px; }}
+        QPushButton:hover {{ 
+            background-color: {cls.BORDER}; 
+            border: 1px solid {cls.ACCENT}; 
+        }}
         
-        QTextEdit {{ background-color: #000000; border: 1px solid {cls.BORDER}; border-radius: {cls.RADIUS}; color: {cls.TEXT_PRIMARY}; selection-background-color: {cls.ACCENT}; }}
+        QPushButton#accent_btn {{ 
+            background-color: {cls.ACCENT}; 
+            color: {cls.BG_DARK}; 
+            border: none; 
+        }}
         
-        QScrollBar:vertical {{ border: none; background: transparent; width: 8px; margin: 0; }}
-        QScrollBar::handle:vertical {{ background: {cls.BORDER}; min-height: 20px; border-radius: 4px; }}
-        QScrollBar::handle:vertical:hover {{ background: {cls.ACCENT}; }}
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
+        QPushButton#accent_btn:hover {{ 
+            background-color: white; 
+        }}
         
-        QSplitter::handle {{ background-color: {cls.BORDER}; }}
+        QPushButton#danger_btn {{ 
+            background-color: {cls.DANGER}; 
+            color: white;
+            border: none;
+        }}
+        
+        QLineEdit, QComboBox, QSpinBox {{ 
+            background-color: {cls.BG_DARK}; 
+            border: 1px solid {cls.BORDER}; 
+            border-radius: 6px; 
+            padding: 5px 10px; 
+            color: {cls.TEXT_PRIMARY}; 
+        }}
+        
+        QLineEdit:focus {{ 
+            border: 1px solid {cls.ACCENT}; 
+        }}
+        
+        QTableWidget {{ 
+            background-color: {cls.BG_CARD}; 
+            border: 1px solid {cls.BORDER}; 
+            gridline-color: {cls.BORDER}; 
+            color: {cls.TEXT_PRIMARY};
+            selection-background-color: {cls.BG_INPUT};
+        }}
+        
+        QHeaderView::section {{ 
+            background-color: {cls.BG_INPUT}; 
+            padding: 8px; 
+            border: none;
+            border-right: 1px solid {cls.BORDER};
+            border-bottom: 1px solid {cls.BORDER};
+            color: {cls.TEXT_SECONDARY}; 
+            font-weight: bold; 
+            text-transform: uppercase;
+            font-size: 9px;
+        }}
+        
+        QProgressBar {{ 
+            border: none; 
+            border-radius: 10px; 
+            text-align: center; 
+            background-color: {cls.BG_DARK}; 
+            height: 10px; 
+        }}
+        
+        QProgressBar::chunk {{ 
+            background-color: {cls.ACCENT}; 
+            border-radius: 10px; 
+        }}
+        
+        QTextEdit {{ 
+            background-color: #080c14; 
+            border: 1px solid {cls.BORDER}; 
+            border-radius: {cls.RADIUS}; 
+            color: #cbd5e1; 
+            font-family: 'JetBrains Mono', 'Consolas', monospace;
+            font-size: 11px;
+            padding: 8px;
+        }}
+        
+        QScrollBar:vertical {{ 
+            background: transparent; 
+            width: 8px; 
+        }}
+        
+        QScrollBar::handle:vertical {{ 
+            background: {cls.BG_INPUT}; 
+            border-radius: 4px; 
+        }}
         """

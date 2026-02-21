@@ -105,24 +105,26 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = create_v_layout(margins=(10, 10, 10, 10), spacing=5)
+        main_layout = create_v_layout(margins=(10, 5, 10, 10), spacing=0)
 
         # Header
-        header_container = CompactGroupBox("Target Selection")
-        header_layout = create_h_layout(margins=(8, 5, 8, 5), spacing=12)
+        header_container = QFrame()
+        header_container.setObjectName("header_frame")
+        header_container.setStyleSheet(f"QFrame#header_frame {{ background-color: {Theme.BG_CARD}; border: 1px solid {Theme.BORDER}; border-radius: {Theme.RADIUS}; }}")
+        header_layout = create_h_layout(margins=(15, 10, 15, 10), spacing=15)
         
         logo_label = QLabel()
         logo_path = get_resource_path(os.path.join("assets", "logo.svg"))
         if os.path.exists(logo_path):
-            pixmap = QPixmap(logo_path).scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pixmap = QPixmap(logo_path).scaled(42, 42, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             logo_label.setPixmap(pixmap)
         header_layout.addWidget(logo_label)
 
         title_layout = create_v_layout(spacing=0)
         title = QLabel("Naz Android Toolkit")
-        title.setStyleSheet(f"color: white; font-size: 20px; font-weight: bold; border: none;")
-        sub_title = QLabel(f"Another Android Fastboot Recovery Suite | {APP_VERSION}")
-        sub_title.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 10px; border: none;")
+        title.setStyleSheet(f"color: {Theme.TEXT_PRIMARY}; font-size: 18px; font-weight: 800; border: none; background: transparent;")
+        sub_title = QLabel(f"Professional Android Fastboot Recovery Suite | {APP_VERSION}")
+        sub_title.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 9px; font-weight: 600; border: none; background: transparent;")
         title_layout.addWidget(title)
         title_layout.addWidget(sub_title)
         header_layout.addLayout(title_layout)
@@ -134,7 +136,10 @@ class MainWindow(QMainWindow):
         self.device_combo.currentIndexChanged.connect(self.on_device_selected)
         btn_refresh = ActionButton("Refresh")
         btn_refresh.clicked.connect(self.refresh_devices)
-        header_layout.addWidget(QLabel("Current Device:"))
+        
+        device_label = QLabel("ACTIVE DEVICE:")
+        device_label.setStyleSheet(f"color: {Theme.ACCENT}; font-size: 9px; font-weight: 800; letter-spacing: 1.2px; background: transparent;")
+        header_layout.addWidget(device_label)
         header_layout.addWidget(self.device_combo)
         header_layout.addWidget(btn_refresh)
         
@@ -143,6 +148,7 @@ class MainWindow(QMainWindow):
 
         # Tabs
         self.tabs = QTabWidget()
+        self.tabs.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.tabs)
 
         self.setup_dashboard_tab()
@@ -185,7 +191,7 @@ class MainWindow(QMainWindow):
 
     def setup_dashboard_tab(self):
         tab = QWidget()
-        layout = create_v_layout(margins=(15, 15, 15, 15), spacing=15)
+        layout = create_v_layout(margins=(15, 5, 15, 15), spacing=15)
         
         grid = QGridLayout()
         grid.setSpacing(10)
@@ -263,13 +269,13 @@ class MainWindow(QMainWindow):
 
     def setup_adb_tab(self):
         tab = QWidget()
-        layout = create_h_layout(margins=(10, 10, 10, 10), spacing=10)
+        layout = create_h_layout(margins=(10, 5, 10, 10), spacing=10)
         splitter = QSplitter(Qt.Horizontal)
         
         left_panel = QWidget()
         left_layout = create_v_layout()
         
-        app_group = CompactGroupBox("App Management")
+        app_group = CompactGroupBox("Application Manager")
         app_layout = create_v_layout(margins=(8, 8, 8, 8))
         btn_install = ActionButton("Install APK Package")
         btn_install.clicked.connect(self.install_apk)
@@ -347,7 +353,7 @@ class MainWindow(QMainWindow):
 
     def setup_fastboot_tab(self):
         tab = QWidget()
-        layout = create_h_layout(margins=(10, 10, 10, 10), spacing=10)
+        layout = create_h_layout(margins=(10, 5, 10, 10), spacing=10)
         splitter = QSplitter(Qt.Horizontal)
         
         left_panel = QWidget()
@@ -371,10 +377,10 @@ class MainWindow(QMainWindow):
         self.partition_combo = QComboBox()
         self.partition_combo.setEditable(True)
         btn_fetch = ActionButton("Fetch")
-        btn_fetch.setFixedWidth(50)
+        btn_fetch.setFixedWidth(80)
         btn_fetch.clicked.connect(self.fetch_partitions)
         btn_browse = ActionButton("Add")
-        btn_browse.setFixedWidth(50)
+        btn_browse.setFixedWidth(80)
         btn_browse.clicked.connect(lambda: self.browse_file())
         
         input_layout.addWidget(self.partition_combo, 1)
@@ -444,7 +450,7 @@ class MainWindow(QMainWindow):
 
     def setup_tweaks_tab(self):
         tab = QWidget()
-        layout = create_h_layout(margins=(10, 10, 10, 10), spacing=10)
+        layout = create_h_layout(margins=(10, 5, 10, 10), spacing=10)
         splitter = QSplitter(Qt.Horizontal)
         
         left_panel = QWidget()

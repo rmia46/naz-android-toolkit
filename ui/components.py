@@ -10,20 +10,20 @@ class InfoCard(QFrame):
             QFrame {{ 
                 background-color: {Theme.BG_CARD}; 
                 border: 1px solid {Theme.BORDER}; 
-                border-radius: 4px; 
+                border-radius: {Theme.RADIUS}; 
             }}
-            QLabel {{ border: none; background: transparent; }}
+            QLabel {{ border: none; background: transparent; padding: 0; }}
         """)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
-        layout.setSpacing(4)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(2)
         
         self.title_lbl = QLabel(title.upper())
-        self.title_lbl.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 9px; font-weight: bold;")
+        self.title_lbl.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 9px; font-weight: 800; letter-spacing: 1.2px;")
         
         self.val_lbl = QLabel("---")
-        self.val_lbl.setStyleSheet(f"color: {accent_color}; font-size: 15px; font-weight: bold;")
+        self.val_lbl.setStyleSheet(f"color: {accent_color}; font-size: 16px; font-weight: bold;")
         self.val_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.val_lbl.setWordWrap(True)
         
@@ -32,10 +32,8 @@ class InfoCard(QFrame):
 
     def set_value(self, value, color=None):
         self.val_lbl.setText(str(value))
-        if color:
-            self.val_lbl.setStyleSheet(f"color: {color}; font-size: 15px; font-weight: bold;")
-        else:
-            self.val_lbl.setStyleSheet(f"color: {self.accent_color}; font-size: 15px; font-weight: bold;")
+        current_color = color if color else self.accent_color
+        self.val_lbl.setStyleSheet(f"color: {current_color}; font-size: 16px; font-weight: bold;")
 
 class ActionButton(QPushButton):
     def __init__(self, text, style="default", parent=None):
@@ -54,17 +52,24 @@ class CompactGroupBox(QGroupBox):
             QGroupBox {{ 
                 font-weight: bold; 
                 border: 1px solid {Theme.BORDER}; 
-                border-radius: 4px; 
-                margin-top: 10px; 
+                border-radius: {Theme.RADIUS}; 
+                margin-top: 8px; 
                 padding-top: 8px; 
-                color: {Theme.ACCENT}; 
+                color: {Theme.TEXT_PRIMARY}; 
+                background-color: {Theme.BG_CARD};
             }}
             QGroupBox::title {{ 
                 subcontrol-origin: margin; 
                 subcontrol-position: top left; 
-                padding: 0 4px; 
-                left: 6px; 
-                top: 2px;
+                padding: 0 10px; 
+                left: 12px; 
+                top: 0px;
+                color: {Theme.ACCENT};
+                text-transform: uppercase;
+                font-size: 9px;
+                letter-spacing: 1.2px;
+                font-weight: 800;
+                background-color: transparent;
             }}
         """)
 
