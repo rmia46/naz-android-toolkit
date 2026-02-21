@@ -46,6 +46,7 @@ jobs:
         run: >
           pyinstaller --noconfirm --onefile --windowed 
           --name "${{ matrix.asset_name }}" 
+          --add-data "assets${{ matrix.sep }}assets"
           --exclude-module tkinter 
           --exclude-module unittest 
           --exclude-module pydoc 

@@ -13,6 +13,7 @@ from core.adb_fastboot import (get_devices, fetch_partitions_from_device, check_
                                get_adb_info, get_fastboot_info, get_adb_metrics)
 from utils.logger import save_session_log, start_boot_monitor
 from utils.settings import SettingsManager
+from utils.paths import get_resource_path
 
 # Global Professional Stylesheet
 STYLESHEET = """
@@ -91,8 +92,9 @@ class MainWindow(QMainWindow):
         header_layout.setContentsMargins(10, 10, 10, 10)
         
         logo_label = QLabel()
-        if os.path.exists("logo.png"):
-            pixmap = QPixmap("logo.png").scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        logo_path = get_resource_path(os.path.join("assets", "logo.png"))
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path).scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             logo_label.setPixmap(pixmap)
         header_layout.addWidget(logo_label)
 
