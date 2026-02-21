@@ -14,16 +14,18 @@ class InfoCard(QFrame):
             }}
             QLabel {{ border: none; background: transparent; padding: 0; }}
         """)
+        self.setMinimumHeight(75)
+        self.setMinimumWidth(180)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(2)
         
         self.title_lbl = QLabel(title.upper())
         self.title_lbl.setStyleSheet(f"color: {Theme.TEXT_SECONDARY}; font-size: 9px; font-weight: 800; letter-spacing: 1.2px;")
         
         self.val_lbl = QLabel("---")
-        self.val_lbl.setStyleSheet(f"color: {accent_color}; font-size: 16px; font-weight: bold;")
+        self.val_lbl.setStyleSheet(f"color: {accent_color}; font-size: 15px; font-weight: bold;")
         self.val_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
         self.val_lbl.setWordWrap(True)
         
@@ -33,7 +35,7 @@ class InfoCard(QFrame):
     def set_value(self, value, color=None):
         self.val_lbl.setText(str(value))
         current_color = color if color else self.accent_color
-        self.val_lbl.setStyleSheet(f"color: {current_color}; font-size: 16px; font-weight: bold;")
+        self.val_lbl.setStyleSheet(f"color: {current_color}; font-size: 15px; font-weight: bold;")
 
 class ActionButton(QPushButton):
     def __init__(self, text, style="default", parent=None):

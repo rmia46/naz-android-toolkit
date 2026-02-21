@@ -36,29 +36,36 @@ class Theme:
             font-size: {cls.FONT_SIZE_BASE}; 
         }}
         
-        QTabWidget {{ 
-            margin: 0px;
-            padding: 0px;
-            border: none;
+        QFrame#header_frame {{ 
+            background-color: {cls.BG_CARD}; 
+            border: 1px solid {cls.BORDER}; 
+            border-radius: {cls.RADIUS}; 
         }}
 
-        QTabWidget::pane {{ 
+        QFrame#nav_frame {{ 
+            background-color: {cls.BG_CARD}; 
             border: 1px solid {cls.BORDER}; 
-            border-top: none;
-            background: {cls.BG_CARD}; 
+            border-top-left-radius: {cls.RADIUS}; 
+            border-top-right-radius: {cls.RADIUS}; 
+        }}
+
+        QStackedWidget {{ 
+            background-color: {cls.BG_CARD}; 
+            border: 1px solid {cls.BORDER}; 
+            border-top: none; 
             border-bottom-left-radius: {cls.RADIUS}; 
             border-bottom-right-radius: {cls.RADIUS}; 
         }}
         
         QTabBar {{
-            background-color: {cls.BG_DARK};
+            background-color: transparent;
             qproperty-drawBase: 0;
             margin: 0px;
         }}
 
         QTabBar::tab {{ 
             background: transparent; 
-            padding: 12px 30px; 
+            padding: 10px 25px; 
             margin-right: 0px; 
             color: {cls.TEXT_SECONDARY}; 
             font-weight: 700;
@@ -70,13 +77,12 @@ class Theme:
         
         QTabBar::tab:selected {{ 
             color: {cls.ACCENT}; 
-            border-bottom: 3px solid {cls.ACCENT};
-            background: {cls.BG_CARD};
+            border-bottom: 2px solid {cls.ACCENT};
         }}
         
         QTabBar::tab:hover:!selected {{
             color: white;
-            background: {cls.BG_INPUT};
+            border-bottom: 2px solid {cls.BORDER};
         }}
         
         QGroupBox {{ 
@@ -105,9 +111,9 @@ class Theme:
             background-color: {cls.BG_INPUT}; 
             border: 1px solid {cls.BORDER}; 
             border-radius: 6px; 
-            padding: 6px 16px; 
+            padding: 5px 16px; 
             color: {cls.TEXT_PRIMARY}; 
-            min-height: 26px; 
+            min-height: 24px; 
             font-weight: 600;
         }}
         
@@ -119,25 +125,32 @@ class Theme:
         QPushButton#accent_btn {{ 
             background-color: {cls.ACCENT}; 
             color: {cls.BG_DARK}; 
-            border: none; 
+            border: 1px solid {cls.ACCENT}; 
         }}
         
         QPushButton#accent_btn:hover {{ 
             background-color: white; 
+            border: 1px solid white;
         }}
         
         QPushButton#danger_btn {{ 
             background-color: {cls.DANGER}; 
             color: white;
-            border: none;
+            border: 1px solid {cls.DANGER};
+        }}
+        
+        QPushButton#danger_btn:hover {{
+            background-color: {cls.DANGER_HOVER};
+            border: 1px solid white;
         }}
         
         QLineEdit, QComboBox, QSpinBox {{ 
             background-color: {cls.BG_DARK}; 
             border: 1px solid {cls.BORDER}; 
-            border-radius: 6px; 
-            padding: 5px 10px; 
+            border-radius: {cls.RADIUS}; 
+            padding: 4px 10px; 
             color: {cls.TEXT_PRIMARY}; 
+            min-height: 22px;
         }}
         
         QLineEdit:focus {{ 

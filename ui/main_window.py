@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QGroupBox, QLineEdit, QProgressBar, QTableWidget,
                              QTableWidgetItem, QHeaderView, QMessageBox, QTabWidget,
                              QFormLayout, QFrame, QGridLayout, QSplitter, QInputDialog,
-                             QDialog, QDialogButtonBox, QCheckBox)
+                             QDialog, QDialogButtonBox, QCheckBox, QStackedWidget, QTabBar)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QFont, QColor, QPixmap, QTextCursor
 
@@ -20,7 +20,7 @@ from utils.logger import save_session_log, start_boot_monitor
 from utils.settings import SettingsManager
 from utils.paths import get_resource_path
 
-APP_VERSION = "v1.3.0"
+APP_VERSION = "v1.4.0"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -105,13 +105,12 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        main_layout = create_v_layout(margins=(10, 5, 10, 10), spacing=0)
+        main_layout = create_v_layout(margins=(10, 10, 10, 10), spacing=8)
 
-        # Header
+        # Header (Unified Navigation)
         header_container = QFrame()
         header_container.setObjectName("header_frame")
-        header_container.setStyleSheet(f"QFrame#header_frame {{ background-color: {Theme.BG_CARD}; border: 1px solid {Theme.BORDER}; border-radius: {Theme.RADIUS}; }}")
-        header_layout = create_h_layout(margins=(15, 10, 15, 10), spacing=15)
+        header_layout = create_h_layout(margins=(15, 10, 15, 10), spacing=20)
         
         logo_label = QLabel()
         logo_path = get_resource_path(os.path.join("assets", "logo.svg"))
@@ -131,31 +130,42 @@ class MainWindow(QMainWindow):
         
         header_layout.addStretch()
         
+        # Device Selection
         self.device_combo = QComboBox()
-        self.device_combo.setMinimumWidth(250)
+        self.device_combo.setMinimumWidth(200)
         self.device_combo.currentIndexChanged.connect(self.on_device_selected)
         btn_refresh = ActionButton("Refresh")
         btn_refresh.clicked.connect(self.refresh_devices)
         
-        device_label = QLabel("ACTIVE DEVICE:")
-        device_label.setStyleSheet(f"color: {Theme.ACCENT}; font-size: 9px; font-weight: 800; letter-spacing: 1.2px; background: transparent;")
-        header_layout.addWidget(device_label)
         header_layout.addWidget(self.device_combo)
         header_layout.addWidget(btn_refresh)
         
         header_container.setLayout(header_layout)
         main_layout.addWidget(header_container)
 
-        # Tabs
-        self.tabs = QTabWidget()
-        self.tabs.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(self.tabs)
+        # Navigation Bar (Second Frame)
+        nav_container = QFrame()
+        nav_container.setObjectName("nav_frame")
+        nav_layout = create_h_layout(margins=(10, 0, 10, 0))
+        
+        self.nav_bar = QTabBar()
+        self.nav_bar.setExpanding(False)
+        self.nav_bar.setDrawBase(False)
+        nav_layout.addWidget(self.nav_bar)
+        nav_container.setLayout(nav_layout)
+        main_layout.addWidget(nav_container)
+
+        # Content Panels
+        self.content_stack = QStackedWidget()
+        main_layout.addWidget(self.content_stack)
 
         self.setup_dashboard_tab()
         self.setup_adb_tab()
         self.setup_fastboot_tab()
         self.setup_tweaks_tab()
         self.setup_logs_tab()
+
+        self.nav_bar.currentChanged.connect(self.content_stack.setCurrentIndex)
 
         # Bottom UI
         bottom_layout = create_h_layout()
@@ -191,10 +201,10 @@ class MainWindow(QMainWindow):
 
     def setup_dashboard_tab(self):
         tab = QWidget()
-        layout = create_v_layout(margins=(15, 5, 15, 15), spacing=15)
+        layout = create_v_layout(margins=(15, 5, 15, 15), spacing=12)
         
         grid = QGridLayout()
-        grid.setSpacing(10)
+        grid.setSpacing(8)
         
         self.cards = {}
         # Keys are simplified to avoid slashes and match update logic
@@ -265,7 +275,8 @@ class MainWindow(QMainWindow):
         
         layout.addStretch()
         tab.setLayout(layout)
-        self.tabs.addTab(tab, "Dashboard")
+        self.nav_bar.addTab("Dashboard")
+        self.content_stack.addWidget(tab)
 
     def setup_adb_tab(self):
         tab = QWidget()
@@ -349,7 +360,8 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 1)
         layout.addWidget(splitter)
         tab.setLayout(layout)
-        self.tabs.addTab(tab, "ADB Tools")
+        self.nav_bar.addTab("ADB Tools")
+        self.content_stack.addWidget(tab)
 
     def setup_fastboot_tab(self):
         tab = QWidget()
@@ -446,7 +458,8 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 1)
         layout.addWidget(splitter)
         tab.setLayout(layout)
-        self.tabs.addTab(tab, "Fastboot")
+        self.nav_bar.addTab("Fastboot")
+        self.content_stack.addWidget(tab)
 
     def setup_tweaks_tab(self):
         tab = QWidget()
@@ -521,7 +534,8 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 1)
         layout.addWidget(splitter)
         tab.setLayout(layout)
-        self.tabs.addTab(tab, "Tweaks (Beta)")
+        self.nav_bar.addTab("Tweaks")
+        self.content_stack.addWidget(tab)
 
     def setup_logs_tab(self):
         tab = QWidget()
@@ -545,7 +559,8 @@ class MainWindow(QMainWindow):
         btn_layout.addWidget(btn_boot)
         layout.addLayout(btn_layout)
         tab.setLayout(layout)
-        self.tabs.addTab(tab, "Console Logs")
+        self.nav_bar.addTab("Logs")
+        self.content_stack.addWidget(tab)
 
     def refresh_devices(self):
         self.device_combo.clear()
@@ -566,13 +581,14 @@ class MainWindow(QMainWindow):
         is_fastboot = "FASTBOOT" in text
         is_sideload = "SIDELOAD" in text
         
-        for card in self.cards.values(): card.set_value("...")
+        for card in self.cards.values(): 
+            card.set_value("...")
         
         if is_fastboot:
             info = get_fastboot_info(serial)
             self.cards["Model_card"].set_value("N/A")
             self.cards["Product_card"].set_value(info["Product"])
-            self.cards["State_card"].set_value("FASTBOOT", color="#311B92")
+            self.cards["State_card"].set_value("FASTBOOT", color="#FFEB3B") # Yellow
             
             bl_state = info["Unlocked"]
             bl_color = Theme.ACCENT if bl_state == "yes" else Theme.DANGER if bl_state == "no" else Theme.TEXT_SECONDARY
@@ -585,12 +601,12 @@ class MainWindow(QMainWindow):
         elif is_sideload:
             for key in ["Model", "Product", "Bootloader", "Root", "Battery", "Temp", "Storage"]:
                 self.cards[f"{key}_card"].set_value("N/A")
-            self.cards["State_card"].set_value("SIDELOAD", color="#4A148C")
+            self.cards["State_card"].set_value("SIDELOAD", color="#FFEB3B") # Yellow
         else:
             info = get_adb_info(serial)
             self.cards["Model_card"].set_value(info["Model"])
             self.cards["Product_card"].set_value(info["Build"])
-            self.cards["State_card"].set_value("ADB", color="#1565C0")
+            self.cards["State_card"].set_value("ADB", color="#FFEB3B") # Yellow
             self.cards["Bootloader_card"].set_value("Check in Fastboot")
             
             root_color = Theme.ACCENT if "Yes" in info["Root"] else Theme.DANGER
